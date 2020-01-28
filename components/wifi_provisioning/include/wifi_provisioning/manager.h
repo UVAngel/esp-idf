@@ -555,6 +555,9 @@ esp_err_t wifi_prov_mgr_get_wifi_disconnect_reason(wifi_prov_sta_fail_reason_t *
  */
 esp_err_t wifi_prov_mgr_configure_sta(wifi_config_t *wifi_cfg);
 
+esp_err_t wifi_prov_mgr_pause_service();
+esp_err_t wifi_prov_mgr_resume_service();
+
 #ifdef __cplusplus
 }
 #endif

@@ -267,6 +267,16 @@ static cJSON* wifi_prov_get_info_json(void)
 static void wifi_prov_mgr_event_handler_internal(void* arg, esp_event_base_t event_base,
                                                  int event_id, void* event_data);
 
+esp_err_t wifi_prov_mgr_pause_service()
+{
+    return prov_ctx->mgr_config.scheme.prov_stop(prov_ctx->pc);
+}
+
+esp_err_t wifi_prov_mgr_resume_service()
+{
+    return prov_ctx->mgr_config.scheme.prov_start(prov_ctx->pc, prov_ctx->prov_scheme_config);
+}
+
 static esp_err_t wifi_prov_mgr_start_service(const char *service_name, const char *service_key)
 {
     const wifi_prov_scheme_t *scheme = &prov_ctx->mgr_config.scheme;
