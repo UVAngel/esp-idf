@@ -905,8 +905,10 @@ esp_err_t protocomm_ble_set_manufacturer_data(uint8_t *data, uint8_t length)
     ESP_LOGI(TAG, "Setting mfg_data to:");
     ESP_LOG_BUFFER_HEX(TAG, data, length);
 
-    if (0 != ble_gap_adv_set_fields(&adv_data)) {
-        return ESP_FAIL;
+    if (protoble_internal != NULL) {
+        if (0 != ble_gap_adv_set_fields(&adv_data)) {
+            return ESP_FAIL;
+        }
     }
 
     return ESP_OK;
