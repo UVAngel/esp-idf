@@ -1402,18 +1402,18 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
 
     /* Start Wi-Fi in Station Mode.
      * This is necessary for scanning to work */
-    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set Wi-Fi mode to STA");
-        RELEASE_LOCK(prov_ctx_lock);
-        return err;
-    }
-    err = esp_wifi_start();
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start Wi-Fi");
-        RELEASE_LOCK(prov_ctx_lock);
-        return err;
-    }
+    // esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to set Wi-Fi mode to STA");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
+    // err = esp_wifi_start();
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to start Wi-Fi");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
 
     /* Change Wi-Fi storage to RAM temporarily and erase any old
      * credentials (i.e. without erasing the copy on NVS). Also
