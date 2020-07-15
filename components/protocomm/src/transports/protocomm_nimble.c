@@ -220,6 +220,7 @@ simple_ble_gap_event(struct ble_gap_event *event, void *arg)
 
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
+        ESP_LOGI(TAG, "BLE_GAP_EVENT_CONNECT");
         /* A new connection was established or a connection attempt failed. */
         if (event->connect.status == 0) {
             transport_simple_ble_connect(event, arg);
@@ -230,11 +231,13 @@ simple_ble_gap_event(struct ble_gap_event *event, void *arg)
             }
         } else {
             /* Connection failed; resume advertising. */
+            ESP_LOGI(TAG, "connection failed; status = %d", event->connect.status);
             simple_ble_advertise();
         }
         return 0;
 
     case BLE_GAP_EVENT_DISCONNECT:
+        ESP_LOGI(TAG, "BLE_GAP_EVENT_DISCONNECT");
         ESP_LOGD(TAG, "disconnect; reason=%d ", event->disconnect.reason);
         transport_simple_ble_disconnect(event, arg);
 
@@ -243,10 +246,12 @@ simple_ble_gap_event(struct ble_gap_event *event, void *arg)
         return 0;
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
+        ESP_LOGI(TAG, "BLE_GAP_EVENT_ADV_COMPLETE");
         simple_ble_advertise();
         return 0;
 
     case BLE_GAP_EVENT_MTU:
+        ESP_LOGI(TAG, "BLE_GAP_EVENT_MTU");
         ESP_LOGI(TAG, "mtu update event; conn_handle=%d cid=%d mtu=%d\n",
                  event->mtu.conn_handle,
                  event->mtu.channel_id,
@@ -894,6 +899,23 @@ esp_err_t protocomm_ble_start(protocomm_t *pc, const protocomm_ble_config_t *con
     }
 
     ESP_LOGV(TAG, "Waiting for client to connect ......");
+    return ESP_OK;
+}
+
+esp_err_t protocomm_ble_set_manufacturer_data(uint8_t *data, uint8_t length)
+{
+    adv_data.mfg_data = data;
+    adv_data.mfg_data_len = length;
+
+    ESP_LOGI(TAG, "Setting mfg_data to:");
+    ESP_LOG_BUFFER_HEX(TAG, data, length);
+
+    if (protoble_internal != NULL) {
+        if (0 != ble_gap_adv_set_fields(&adv_data)) {
+            return ESP_FAIL;
+        }
+    }
+
     return ESP_OK;
 }
 
