@@ -27,6 +27,14 @@ extern "C" {
 #define MAX_BLE_DEVNAME_LEN 29
 #define BLE_UUID128_VAL_LENGTH  16
 
+typedef enum {
+    PROTOCOMM_BLE_PEER_CONNECTED,
+    PROTOCOMM_BLE_PEER_DISCONNECTED,
+} ble_event;
+
+/// type of function called when a peer device connects or disconnects
+typedef void (*protocomm_ble_event_fn)(ble_event event);
+
 /**
  * @brief   This structure maps handler required by protocomm layer to
  *          UUIDs which are used to uniquely identify BLE characteristics
@@ -89,6 +97,9 @@ typedef struct protocomm_ble_config {
 esp_err_t protocomm_ble_start(protocomm_t *pc, const protocomm_ble_config_t *config);
 
 esp_err_t protocomm_ble_set_manufacturer_data(uint8_t *data, uint8_t length);
+
+/// Register a callback that is called when a BLE event occurs (peer connects or disconnects)
+void protocomm_ble_register_ble_event_fn(protocomm_ble_event_fn fn);
 
 /**
  * @brief   Stop Bluetooth Low Energy based transport layer for provisioning

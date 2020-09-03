@@ -80,6 +80,7 @@ static _protocomm_ble_internal_t *protoble_internal;
 static struct ble_gap_adv_params adv_params;
 static char *protocomm_ble_device_name;
 static struct ble_hs_adv_fields adv_data, resp_data;
+static protocomm_ble_event_fn _ble_event_fn;
 
 /**********************************************************************
 * Maintain database of uuid_name addresses to free memory afterwards  *
@@ -421,6 +422,10 @@ gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
     }
 }
 
+void protocomm_ble_register_ble_event_fn(protocomm_ble_event_fn fn) {
+    _ble_event_fn = fn;
+}
+
 int
 gatt_svr_init(const simple_ble_cfg_t *config)
 {
@@ -528,6 +533,10 @@ static void transport_simple_ble_disconnect(struct ble_gap_event *event, void *a
             protoble_internal->pc_ble->sec->close_transport_session(protoble_internal->pc_ble->sec_inst, event->disconnect.conn.conn_handle);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "error closing the session after disconnect");
+        } else {
+            if (NULL != _ble_event_fn) {
+                _ble_event_fn(PROTOCOMM_BLE_PEER_DISCONNECTED);
+            }
         }
     }
     protoble_internal->gatt_mtu = BLE_ATT_MTU_DFLT;
@@ -543,6 +552,11 @@ static void transport_simple_ble_connect(struct ble_gap_event *event, void *arg)
             protoble_internal->pc_ble->sec->new_transport_session(protoble_internal->pc_ble->sec_inst, event->connect.conn_handle);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "error creating the session");
+            return;
+        }
+
+        if (NULL != _ble_event_fn) {
+            _ble_event_fn(PROTOCOMM_BLE_PEER_CONNECTED);
         }
     }
 }
