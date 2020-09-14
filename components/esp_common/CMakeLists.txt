@@ -19,7 +19,10 @@ else()
 
     idf_component_register(SRCS "${srcs}"
                         INCLUDE_DIRS include
-                        PRIV_REQUIRES soc)
+                        PRIV_REQUIRES soc
+                                      app_update
+                                      nvs_flash
+    )
 
     set_source_files_properties(
         "src/stack_check.c"
