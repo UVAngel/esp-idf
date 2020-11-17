@@ -426,6 +426,10 @@ void protocomm_ble_register_ble_event_fn(protocomm_ble_event_fn fn) {
     _ble_event_fn = fn;
 }
 
+protocomm_ble_event_fn protocomm_ble_get_ble_event_fn(void) {
+    return _ble_event_fn;
+}
+
 int
 gatt_svr_init(const simple_ble_cfg_t *config)
 {
