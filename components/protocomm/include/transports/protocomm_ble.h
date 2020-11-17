@@ -30,10 +30,10 @@ extern "C" {
 typedef enum {
     // Peer is connected without any security (i.e., no PoP has been entered)
     PROTOCOMM_BLE_PEER_CONNECTED,
-    // Peer is connected securely with a valid PoP
-    PROTOCOMM_BLE_PEER_CONNECTED_SECURE,
     // Peer disconnected
     PROTOCOMM_BLE_PEER_DISCONNECTED,
+    // Peer is connected securely with a valid PoP
+    PROTOCOMM_BLE_PEER_CONNECTED_SECURE,
 } ble_event;
 
 /// type of function called when a peer device connects or disconnects
