@@ -291,14 +291,13 @@ static int protocomm_common_security_handler(uint32_t session_id,
                                              inbuf, inlen,
                                              outbuf, outlen,
                                              priv_data);
-        if (ESP_OK == ret) {
+        if (ESP_OK == ret && NULL != pc->sec->secure_session_established) {
             protocomm_ble_event_fn fn = protocomm_ble_get_ble_event_fn();
-            if (NULL != fn) {
+
+            if (NULL != fn && pc->sec->secure_session_established(pc->sec_inst)) {
                 fn(PROTOCOMM_BLE_PEER_CONNECTED_SECURE);
             }
         }
-
-        return ret;
     }
 
     return ESP_OK;
