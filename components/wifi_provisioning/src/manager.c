@@ -552,11 +552,17 @@ static void prov_stop_and_notify(bool is_async)
 
     /* This delay is so that the client side app is notified first
      * and then the provisioning is stopped. Generally 1000ms is enough. */
+<<<<<<< HEAD
     if (!is_async)
     {
         uint32_t cleanup_delay = prov_ctx->cleanup_delay > 100 ? prov_ctx->cleanup_delay : 100;
         vTaskDelay(cleanup_delay / portTICK_PERIOD_MS);
     }
+=======
+    uint32_t cleanup_delay = prov_ctx->cleanup_delay > 100 ? prov_ctx->cleanup_delay : 100;
+    ESP_LOGI(TAG, "Delaying %d ms", cleanup_delay);
+    vTaskDelay(cleanup_delay / portTICK_PERIOD_MS);
+>>>>>>> 22dbcbcdcd (spindance changes)
 
     /* All the extra application added endpoints are also
      * removed automatically when prov_stop is called */
@@ -1003,6 +1009,8 @@ esp_err_t wifi_prov_mgr_wifi_scan_start(bool blocking, bool passive,
         RELEASE_LOCK(prov_ctx_lock);
         return ESP_OK;
     }
+
+    execute_event_cb(WIFI_PROV_SCAN_STARTED, NULL, 0);
 
     /* Clear sorted list for new entries */
     for (uint8_t i = 0; i < MAX_SCAN_RESULTS; i++) {
@@ -1516,6 +1524,7 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
 
     /* Start Wi-Fi in Station Mode.
      * This is necessary for scanning to work */
+<<<<<<< HEAD
     ret = esp_wifi_set_mode(WIFI_MODE_STA);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to set Wi-Fi mode to STA");
@@ -1526,11 +1535,26 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
         ESP_LOGE(TAG, "Failed to start Wi-Fi");
         goto err;
     }
+=======
+    // esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to set Wi-Fi mode to STA");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
+    // err = esp_wifi_start();
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to start Wi-Fi");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
+>>>>>>> 22dbcbcdcd (spindance changes)
 
     /* Change Wi-Fi storage to RAM temporarily and erase any old
      * credentials in RAM(i.e. without erasing the copy on NVS). Also
      * call disconnect to make sure device doesn't remain connected
      * to the AP whose credentials were present earlier */
+<<<<<<< HEAD
     wifi_config_t wifi_cfg_empty, wifi_cfg_old;
     memset(&wifi_cfg_empty, 0, sizeof(wifi_config_t));
     esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg_old);
@@ -1539,6 +1563,30 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
         ESP_LOGE(TAG, "Failed to set Wi-Fi storage to RAM");
         goto err;
     }
+=======
+    // wifi_config_t wifi_cfg_empty, wifi_cfg_old;
+    wifi_config_t wifi_cfg_old;
+    // memset(&wifi_cfg_empty, 0, sizeof(wifi_config_t));
+    esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg_old);
+    // err = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to set Wi-Fi storage to RAM");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
+    // esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg_empty);
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to set empty Wi-Fi credentials");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
+    // err = esp_wifi_disconnect();
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to disconnect");
+    //     RELEASE_LOCK(prov_ctx_lock);
+    //     return err;
+    // }
+>>>>>>> 22dbcbcdcd (spindance changes)
 
     /* WiFi storage needs to be restored before exiting this API */
     restore_wifi_flag |= WIFI_PROV_STORAGE_BIT;
