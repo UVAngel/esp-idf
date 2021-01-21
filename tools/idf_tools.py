@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding=utf-8
 #
 # SPDX-FileCopyrightText: 2019-2024 Espressif Systems (Shanghai) CO LTD
