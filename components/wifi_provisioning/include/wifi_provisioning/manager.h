@@ -72,6 +72,12 @@ typedef enum {
 
 typedef void (*wifi_prov_cb_func_t)(void *user_data, wifi_prov_cb_event_t event, void *event_data);
 
+/** Returns ESP_OK if operation is authorized, ESP_ERR_FAIL otherwise
+ *
+ *  @note: auth is not NULL terminated. Callbacks must only check up to auth_len characters.
+ */
+typedef esp_err_t (*wifi_prov_cb_auth_t)(const char* auth, size_t auth_len);
+
 /**
  * @brief   Event handler that is used by the manager while
  *          provisioning service is active
@@ -597,6 +603,22 @@ esp_err_t wifi_prov_mgr_reset_sm_state_on_failure(void);
  *  - ESP_ERR_INVALID_STATE : Manager not initialized
  */
 esp_err_t wifi_prov_mgr_reset_sm_state_for_reprovision(void);
+
+/**
+ * @brief Callback for authorizing wifi prov scans and config changes.
+ * Will be called before dispatching prov-scan or
+ * prov-config commands to verify the operation is authorized.
+ *
+ * @note Authorization is disabled by default until this function
+ * is called to set the authorization callback.
+ *
+ * @param[in] auth_cb Callback function to authorize wifi prov commands
+ *
+ * @return
+ *  - ESP_OK       : Callback set
+ *  - ESP_FAIL : Callback not set
+ */
+esp_err_t wifi_prov_mgr_set_authorization_cb(wifi_prov_cb_auth_t auth_cb);
 
 #ifdef __cplusplus
 }
