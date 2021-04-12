@@ -26,8 +26,8 @@ idf_component_register(SRCS "src/coexist.c"
                             "src/wifi_netif.c"
                             "${idf_target}/esp_adapter.c"
                     INCLUDE_DIRS "include" "${idf_target}/include"
+                    PRIV_REQUIRES wpa_supplicant nvs_flash esp_netif driver ${extra_priv_requires}
                     REQUIRES esp_event
-                    PRIV_REQUIRES wpa_supplicant nvs_flash esp_netif ${extra_priv_requires}
                     LDFRAGMENTS "${ldfragments}")
 
 component_compile_options("-DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG")
