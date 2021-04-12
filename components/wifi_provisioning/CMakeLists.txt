@@ -20,3 +20,5 @@ idf_component_register(SRCS "${srcs}"
                     PRIV_INCLUDE_DIRS src proto-c ../protocomm/proto-c
                     REQUIRES lwip protocomm
                     PRIV_REQUIRES protobuf-c bt mdns json esp_timer)
+
+component_compile_options("-DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG")

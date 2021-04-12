@@ -30,6 +30,8 @@ idf_component_register(SRCS "src/coexist.c"
                     PRIV_REQUIRES wpa_supplicant nvs_flash esp_netif ${extra_priv_requires}
                     LDFRAGMENTS "${ldfragments}")
 
+component_compile_options("-DLOG_LOCAL_LEVEL=ESP_LOG_DEBUG")
+
 idf_build_get_property(build_dir BUILD_DIR)
 
 # ToDo: Rename esp32s2beta to esp32s2 next time update wifi lib
@@ -58,7 +60,7 @@ endif()
 if(CONFIG_ESP32_PHY_INIT_DATA_IN_PARTITION)
     idf_component_get_property(esp_common_dir esp_common COMPONENT_DIR)
     partition_table_get_partition_info(phy_partition_offset "--partition-type data --partition-subtype phy" "offset")
-    
+
     if(CONFIG_ESP32_SUPPORT_MULTIPLE_PHY_INIT_DATA_BIN)
         set(phy_init_data_bin "${CMAKE_CURRENT_SOURCE_DIR}/phy_multiple_init_data.bin")
     else()
