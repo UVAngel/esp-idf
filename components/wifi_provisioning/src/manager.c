@@ -635,6 +635,7 @@ static bool wifi_prov_mgr_stop_service(bool blocking)
 /* Task spawned by timer callback */
 static void stop_prov_timer_cb(void *arg)
 {
+    ESP_LOGI(TAG, "in stop_prov_timer_cb");
     wifi_prov_mgr_stop_provisioning();
 }
 
@@ -1101,6 +1102,8 @@ esp_err_t wifi_prov_mgr_is_provisioned(bool *provisioned)
         return ESP_ERR_INVALID_ARG;
     }
 
+    ESP_LOGI(TAG, "in wifi_prov_mgr_is_provisioned");
+
     *provisioned = false;
 
     if (!prov_ctx_lock) {
@@ -1123,6 +1126,7 @@ esp_err_t wifi_prov_mgr_is_provisioned(bool *provisioned)
 
 static void wifi_connect_timer_cb(void *arg)
 {
+    ESP_LOGI(TAG, "in wifi_connect_timer_cb");
     if (esp_wifi_connect() != ESP_OK) {
         ESP_LOGE(TAG, "Failed to connect Wi-Fi");
     }
@@ -1130,6 +1134,7 @@ static void wifi_connect_timer_cb(void *arg)
 
 esp_err_t wifi_prov_mgr_configure_sta(wifi_config_t *wifi_cfg)
 {
+    ESP_LOGI(TAG, "in wifi_prov_mgr_configure_sta");
     if (!prov_ctx_lock) {
         ESP_LOGE(TAG, "Provisioning manager not initialized");
         return ESP_ERR_INVALID_STATE;

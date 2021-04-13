@@ -131,7 +131,7 @@ static esp_err_t apply_config_handler(wifi_prov_ctx_t **ctx)
 
     esp_err_t ret = wifi_prov_mgr_configure_sta(wifi_cfg);
     if (ret == ESP_OK) {
-        ESP_LOGD(TAG, "Wi-Fi Credentials Applied");
+        ESP_LOGI(TAG, "Wi-Fi Credentials Applied");
     } else {
         ESP_LOGE(TAG, "Failed to apply Wi-Fi Credentials");
     }
