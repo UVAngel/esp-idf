@@ -218,21 +218,21 @@ extern uint64_t g_wifi_feature_caps;
     .mgmt_sbuf_num = WIFI_MGMT_SBUF_NUM, \
     .feature_caps = g_wifi_feature_caps, \
     .magic = WIFI_INIT_CONFIG_MAGIC\
-};
+}
 
 /**
-  * @brief  Init WiFi
-  *         Alloc resource for WiFi driver, such as WiFi control structure, RX/TX buffer,
-  *         WiFi NVS structure etc, this WiFi also start WiFi task
+  * @brief  Initialize WiFi
+  *         Allocate resource for WiFi driver, such as WiFi control structure, RX/TX buffer,
+  *         WiFi NVS structure etc. This WiFi also starts WiFi task
   *
   * @attention 1. This API must be called before all other WiFi API can be called
-  * @attention 2. Always use WIFI_INIT_CONFIG_DEFAULT macro to init the config to default values, this can
-  *               guarantee all the fields got correct value when more fields are added into wifi_init_config_t
-  *               in future release. If you want to set your owner initial values, overwrite the default values
-  *               which are set by WIFI_INIT_CONFIG_DEFAULT, please be notified that the field 'magic' of 
+  * @attention 2. Always use WIFI_INIT_CONFIG_DEFAULT macro to initialize the configuration to default values, this can
+  *               guarantee all the fields get correct value when more fields are added into wifi_init_config_t
+  *               in future release. If you want to set your own initial values, overwrite the default values
+  *               which are set by WIFI_INIT_CONFIG_DEFAULT. Please be notified that the field 'magic' of
   *               wifi_init_config_t should always be WIFI_INIT_CONFIG_MAGIC!
   *
-  * @param  config pointer to WiFi init configuration structure; can point to a temporary variable.
+  * @param  config pointer to WiFi initialized configuration structure; can point to a temporary variable.
   *
   * @return
   *    - ESP_OK: succeed
@@ -329,7 +329,7 @@ esp_err_t esp_wifi_restore(void);
   *
   * @attention 1. This API only impact WIFI_MODE_STA or WIFI_MODE_APSTA mode
   * @attention 2. If the ESP32 is connected to an AP, call esp_wifi_disconnect to disconnect.
-  * @attention 3. The scanning triggered by esp_wifi_start_scan() will not be effective until connection between ESP32 and the AP is established.
+  * @attention 3. The scanning triggered by esp_wifi_scan_start() will not be effective until connection between ESP32 and the AP is established.
   *               If ESP32 is scanning and connecting at the same time, ESP32 will abort scanning and return a warning message and error
   *               number ESP_ERR_WIFI_STATE.
   *               If you want to do reconnection after ESP32 received disconnect event, remember to add the maximum retry time, otherwise the called	
@@ -448,6 +448,8 @@ esp_err_t esp_wifi_scan_get_ap_records(uint16_t *number, wifi_ap_record_t *ap_re
 /**
   * @brief     Get information of AP which the ESP32 station is associated with
   *
+  * @attention When the obtained country information is empty, it means that the AP does not carry country information
+  *
   * @param     ap_info  the wifi_ap_record_t to hold AP information
   *            sta can get the connected ap's phy mode info through the struct member
   *            phy_11b，phy_11g，phy_11n，phy_lr in the wifi_ap_record_t struct.
@@ -486,7 +488,7 @@ esp_err_t esp_wifi_get_ps(wifi_ps_type_t *type);
   * @brief     Set protocol type of specified interface
   *            The default protocol is (WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N)
   *
-  * @attention Currently we only support 802.11b or 802.11bg or 802.11bgn mode
+  * @attention Support 802.11b or 802.11bg or 802.11bgn or LR mode
   *
   * @param     ifx  interfaces
   * @param     protocol_bitmap  WiFi protocol bitmap
@@ -585,20 +587,21 @@ esp_err_t esp_wifi_get_channel(uint8_t *primary, wifi_second_chan_t *second);
 /**
   * @brief     configure country info
   *
-  * @attention 1. The default country is {.cc="CN", .schan=1, .nchan=13, policy=WIFI_COUNTRY_POLICY_AUTO}
-  * @attention 2. When the country policy is WIFI_COUNTRY_POLICY_AUTO, the country info of the AP to which
-  *               the station is connected is used. E.g. if the configured country info is {.cc="USA", .schan=1, .nchan=11}
+  * @attention 1. The default country is CHINA {.cc="CN", .schan=1, .nchan=13, .policy=WIFI_COUNTRY_POLICY_AUTO}.
+  * @attention 2. The third octect of country code string is one of the following: ' ', 'O', 'I', 'X', otherwise it is considered as ' '.
+  * @attention 3. When the country policy is WIFI_COUNTRY_POLICY_AUTO, the country info of the AP to which
+  *               the station is connected is used. E.g. if the configured country info is {.cc="US", .schan=1, .nchan=11}
   *               and the country info of the AP to which the station is connected is {.cc="JP", .schan=1, .nchan=14}
   *               then the country info that will be used is {.cc="JP", .schan=1, .nchan=14}. If the station disconnected
-  *               from the AP the country info is set back back to the country info of the station automatically,
+  *               from the AP the country info is set back to the country info of the station automatically,
   *               {.cc="US", .schan=1, .nchan=11} in the example.
-  * @attention 3. When the country policy is WIFI_COUNTRY_POLICY_MANUAL, always use the configured country info.
-  * @attention 4. When the country info is changed because of configuration or because the station connects to a different
-  *               external AP, the country IE in probe response/beacon of the soft-AP is changed also.
-  * @attention 5. The country configuration is stored into flash.
-  * @attention 6. This API doesn't validate the per-country rules, it's up to the user to fill in all fields according to 
+  * @attention 4. When the country policy is WIFI_COUNTRY_POLICY_MANUAL, then the configured country info is used always.
+  * @attention 5. When the country info is changed because of configuration or because the station connects to a different
+  *               external AP, the country IE in probe response/beacon of the soft-AP is also changed.
+  * @attention 6. The country configuration is stored into flash.
+  * @attention 7. This API doesn't validate the per-country rules, it's up to the user to fill in all fields according to
   *               local regulations.
-  * @attention 7. When this API is called, the PHY init data will switch to the PHY init data type corresponding to the
+  * @attention 8. When this API is called, the PHY init data will switch to the PHY init data type corresponding to the
   *               country info.
   *
   * @param     country   the configured country info
@@ -887,16 +890,16 @@ esp_err_t esp_wifi_set_vendor_ie_cb(esp_vendor_ie_cb_t cb, void *ctx);
   * @attention 1. Maximum power before wifi startup is limited by PHY init data bin.
   * @attention 2. The value set by this API will be mapped to the max_tx_power of the structure wifi_country_t variable.
   * @attention 3. Mapping Table {Power, max_tx_power} = {{8,   2}, {20,  5}, {28,  7}, {34,  8}, {44, 11},
-  *                                                      {52, 13}, {56, 14}, {60, 15}, {66, 16}, {72, 18}, {78, 20}}.
-  * @attention 4. Param power unit is 0.25dBm, range is [8, 78] corresponding to 2dBm - 20dBm.
-  * @attention 5. Relationship between set value and actual value. As follows: {set value range, actual value} = {{[8,  19],8}, {[20, 27],20}, {[28, 33],28}, {[34, 43],34}, {[44, 51],44}, {[52, 55],52}, {[56, 59],56}, {[60, 65],60}, {[66, 71],66}, {[72, 77],72}, {78,78}}
+  *                                                      {52, 13}, {56, 14}, {60, 15}, {66, 16}, {72, 18}, {80, 20}}.
+  * @attention 4. Param power unit is 0.25dBm, range is [8, 84] corresponding to 2dBm - 20dBm.
+  * @attention 5. Relationship between set value and actual value. As follows: {set value range, actual value} = {{[8,  19],8}, {[20, 27],20}, {[28, 33],28}, {[34, 43],34}, {[44, 51],44}, {[52, 55],52}, {[56, 59],56}, {[60, 65],60}, {[66, 71],66}, {[72, 79],72}, {[80, 84],80}}.
   *
   * @param     power  Maximum WiFi transmitting power.
   *
   * @return
   *    - ESP_OK: succeed
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
-  *    - ESP_ERR_WIFI_NOT_START: WiFi is not started by esp_wifi_start
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
   *    - ESP_ERR_WIFI_ARG: invalid argument, e.g. parameter is out of range
   */
 esp_err_t esp_wifi_set_max_tx_power(int8_t power);
@@ -909,7 +912,7 @@ esp_err_t esp_wifi_set_max_tx_power(int8_t power);
   * @return
   *    - ESP_OK: succeed
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
-  *    - ESP_ERR_WIFI_NOT_START: WiFi is not started by esp_wifi_start
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
   *    - ESP_ERR_WIFI_ARG: invalid argument
   */
 esp_err_t esp_wifi_get_max_tx_power(int8_t *power);
@@ -1005,7 +1008,7 @@ esp_err_t esp_wifi_set_csi_rx_cb(wifi_csi_cb_t cb, void *ctx);
   * return
   *    - ESP_OK: succeed
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
-  *    - ESP_ERR_WIFI_NOT_START: WiFi is not started by esp_wifi_start or promiscuous mode is not enabled
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start or promiscuous mode is not enabled
   *    - ESP_ERR_INVALID_ARG: invalid argument
   */
 esp_err_t esp_wifi_set_csi_config(const wifi_csi_config_t *config);
@@ -1018,7 +1021,7 @@ esp_err_t esp_wifi_set_csi_config(const wifi_csi_config_t *config);
   * return
   *    - ESP_OK: succeed
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
-  *    - ESP_ERR_WIFI_NOT_START: WiFi is not started by esp_wifi_start or promiscuous mode is not enabled
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start or promiscuous mode is not enabled
   *    - ESP_ERR_INVALID_ARG: invalid argument
   */
 esp_err_t esp_wifi_set_csi(bool en);
@@ -1128,6 +1131,19 @@ esp_err_t esp_wifi_get_inactive_time(wifi_interface_t ifx, uint16_t *sec);
   *    - others: failed
   */
 esp_err_t esp_wifi_statis_dump(uint32_t modules);
+
+/**
+  * @brief      Disable PMF configuration for specified interface
+  *
+  * @attention  This API should be called after esp_wifi_set_config() and before esp_wifi_start().
+  *
+  * @param      ifx  Interface to be configured.
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - others: failed
+  */
+esp_err_t esp_wifi_disable_pmf_config(wifi_interface_t ifx);
 
 #ifdef __cplusplus
 }

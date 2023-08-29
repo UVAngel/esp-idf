@@ -83,7 +83,7 @@ static esp_err_t mbc_serial_master_setup(void* comm_info)
                 (uint32_t)comm_info_ptr->mode);
     MB_MASTER_CHECK((comm_info_ptr->port < UART_NUM_MAX), ESP_ERR_INVALID_ARG,
                 "mb wrong port to set = (0x%x).", (uint32_t)comm_info_ptr->port);
-    MB_MASTER_CHECK((comm_info_ptr->parity <= UART_PARITY_EVEN), ESP_ERR_INVALID_ARG,
+    MB_MASTER_CHECK((comm_info_ptr->parity <= UART_PARITY_ODD), ESP_ERR_INVALID_ARG,
                 "mb wrong parity option = (0x%x).", (uint32_t)comm_info_ptr->parity);
     // Save the communication options
     mbm_opts->mbm_comm = *(mb_communication_info_t*)comm_info_ptr;
@@ -102,7 +102,9 @@ static esp_err_t mbc_serial_master_start(void)
 
     // Initialize Modbus stack using mbcontroller parameters
     status = eMBMasterInit((eMBMode)comm_info->mode, (UCHAR)comm_info->port,
-                            (ULONG)comm_info->baudrate, (eMBParity)comm_info->parity);
+                                    (ULONG)comm_info->baudrate,
+                                    MB_PORT_PARITY_GET(comm_info->parity));
+
     MB_MASTER_CHECK((status == MB_ENOERR), ESP_ERR_INVALID_STATE,
             "mb stack initialization failure, eMBInit() returns (0x%x).", status);
     status = eMBMasterEnable();
@@ -407,8 +409,9 @@ static esp_err_t mbc_serial_master_get_parameter(uint16_t cid, char* name,
         // Set the type of parameter found in the table
         *type = reg_info.param_type;
     } else {
-        ESP_LOGD(MB_MASTER_TAG, "%s: The cid(%u) not found in the data dictionary.",
+        ESP_LOGE(MB_MASTER_TAG, "%s: The cid(%u) not found in the data dictionary.",
                                                     __FUNCTION__, reg_info.cid);
+        error = ESP_ERR_INVALID_ARG;
     }
     return error;
 }
@@ -443,6 +446,7 @@ static esp_err_t mbc_serial_master_set_parameter(uint16_t cid, char* name,
     } else {
         ESP_LOGE(MB_MASTER_TAG, "%s: The requested cid(%u) not found in the data dictionary.",
                                     __FUNCTION__, reg_info.cid);
+        error = ESP_ERR_INVALID_ARG;
     }
     return error;
 }
@@ -669,12 +673,13 @@ esp_err_t mbc_serial_master_create(mb_port_type_t port_type, void** handler)
     MB_MASTER_CHECK((mbm_opts->mbm_event_group != NULL), 
                         ESP_ERR_NO_MEM, "mb event group error.");
     // Create modbus controller task
-    status = xTaskCreate((void*)&modbus_master_task,
+    status = xTaskCreatePinnedToCore((void*)&modbus_master_task,
                             "modbus_matask",
                             MB_CONTROLLER_STACK_SIZE,
                             NULL,                       // No parameters
                             MB_CONTROLLER_PRIORITY,
-                            &mbm_opts->mbm_task_handle);
+                            &mbm_opts->mbm_task_handle,
+                            MB_PORT_TASK_AFFINITY);
     if (status != pdPASS) {
         vTaskDelete(mbm_opts->mbm_task_handle);
         MB_MASTER_CHECK((status == pdPASS), ESP_ERR_NO_MEM,

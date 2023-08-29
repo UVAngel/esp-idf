@@ -30,7 +30,7 @@ const uint8_t *esp_bt_dev_get_address(void)
 
 esp_err_t esp_bt_dev_set_device_name(const char *name)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_dev_args_t arg;
 
     if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
@@ -48,5 +48,5 @@ esp_err_t esp_bt_dev_set_device_name(const char *name)
     msg.act = BTC_DEV_ACT_SET_DEVICE_NAME;
     strcpy(arg.set_dev_name.device_name, name);
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_dev_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_dev_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }

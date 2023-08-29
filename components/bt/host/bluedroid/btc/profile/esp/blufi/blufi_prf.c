@@ -134,7 +134,7 @@ static void blufi_profile_cb(tBTA_GATTS_EVT event, tBTA_GATTS *p_data)
         msg.act = ESP_BLUFI_EVENT_DEINIT_FINISH;
         param.deinit_finish.state = ESP_BLUFI_DEINIT_OK;
 
-        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
 
         break;
     }
@@ -273,7 +273,7 @@ static void blufi_profile_cb(tBTA_GATTS_EVT event, tBTA_GATTS *p_data)
         msg.act = ESP_BLUFI_EVENT_INIT_FINISH;
         param.init_finish.state = ESP_BLUFI_INIT_OK;
 
-        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
         break;
     }
     case BTA_GATTS_CONNECT_EVT: {
@@ -296,7 +296,7 @@ static void blufi_profile_cb(tBTA_GATTS_EVT event, tBTA_GATTS *p_data)
         memcpy(param.connect.remote_bda, p_data->conn.remote_bda, sizeof(esp_bd_addr_t));
         param.connect.conn_id=BTC_GATT_GET_CONN_ID(p_data->conn.conn_id);
         param.connect.server_if=p_data->conn.server_if;
-        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
         break;
     }
     case BTA_GATTS_DISCONNECT_EVT: {
@@ -313,12 +313,18 @@ static void blufi_profile_cb(tBTA_GATTS_EVT event, tBTA_GATTS *p_data)
         blufi_env.conn_id = p_data->conn.conn_id;
         blufi_env.recv_seq = blufi_env.send_seq = 0;
         blufi_env.sec_mode = 0x0;
+        blufi_env.offset = 0;
+
+        if (blufi_env.aggr_buf != NULL) {
+            osi_free(blufi_env.aggr_buf);
+            blufi_env.aggr_buf = NULL;
+        }
 
         msg.sig = BTC_SIG_API_CB;
         msg.pid = BTC_PID_BLUFI;
         msg.act = ESP_BLUFI_EVENT_BLE_DISCONNECT;
         memcpy(param.disconnect.remote_bda, p_data->conn.remote_bda, sizeof(esp_bd_addr_t));
-        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+        btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
         break;
     }
     case BTA_GATTS_OPEN_EVT:
@@ -384,7 +390,7 @@ void btc_blufi_report_error(esp_blufi_error_state_t state)
     msg.act = ESP_BLUFI_EVENT_REPORT_ERROR;
     esp_blufi_cb_param_t param;
     param.report_error.state = state;
-    btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL);
+    btc_transfer_context(&msg, &param, sizeof(esp_blufi_cb_param_t), NULL, NULL);
 }
 
 static void btc_blufi_recv_handler(uint8_t *data, int len)
@@ -430,6 +436,16 @@ static void btc_blufi_recv_handler(uint8_t *data, int len)
 
     if (BLUFI_FC_IS_FRAG(hdr->fc)) {
         if (blufi_env.offset == 0) {
+            /*
+            blufi_env.aggr_buf should be NULL if blufi_env.offset is 0.
+            It is possible that the process of sending fragment packet
+            has not been completed
+            */
+            if (blufi_env.aggr_buf) {
+                BTC_TRACE_ERROR("%s msg error, blufi_env.aggr_buf is not freed\n", __func__);
+                btc_blufi_report_error(ESP_BLUFI_MSG_STATE_ERROR);
+                return;
+            }
             blufi_env.total_len = hdr->data[0] | (((uint16_t) hdr->data[1]) << 8);
             blufi_env.aggr_buf = osi_malloc(blufi_env.total_len);
             if (blufi_env.aggr_buf == NULL) {
@@ -449,6 +465,18 @@ static void btc_blufi_recv_handler(uint8_t *data, int len)
 
     } else {
         if (blufi_env.offset > 0) {   /* if previous pkt is frag */
+            /* blufi_env.aggr_buf should not be NULL */
+            if (blufi_env.aggr_buf == NULL) {
+                BTC_TRACE_ERROR("%s buffer is NULL\n", __func__);
+                btc_blufi_report_error(ESP_BLUFI_DH_MALLOC_ERROR);
+                return;
+            }
+            /* payload length should be equal to total_len */
+            if ((blufi_env.offset + hdr->data_len) != blufi_env.total_len) {
+                BTC_TRACE_ERROR("%s payload is longer than packet length, len %d \n", __func__, blufi_env.total_len);
+                btc_blufi_report_error(ESP_BLUFI_DATA_FORMAT_ERROR);
+                return;
+            }
             memcpy(blufi_env.aggr_buf + blufi_env.offset, hdr->data, hdr->data_len);
 
             btc_blufi_protocol_handler(hdr->type, blufi_env.aggr_buf, blufi_env.total_len);

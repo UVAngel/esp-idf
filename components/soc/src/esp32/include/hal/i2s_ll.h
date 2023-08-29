@@ -22,11 +22,13 @@
 
 #pragma once
 
+#include "hal/hal_defs.h"
 #include <stdbool.h>
 #include "soc/rtc_periph.h"
 #include "soc/rtc.h"
 #include "soc/efuse_periph.h"
 #include "soc/i2s_periph.h"
+#include "soc/i2s_struct.h"
 #include "hal/i2s_types.h"
 
 #ifdef __cplusplus
@@ -453,7 +455,7 @@ static inline void i2s_ll_get_rx_sinc_dsr_16_en(i2s_dev_t *hw, bool *val)
  */
 static inline void i2s_ll_set_clkm_div_num(i2s_dev_t *hw, uint32_t val)
 {
-    hw->clkm_conf.clkm_div_num = val;
+    HAL_FORCE_MODIFY_U32_REG_FIELD(hw->clkm_conf, clkm_div_num, val);
 }
 
 /**
@@ -871,8 +873,8 @@ static inline void i2s_ll_set_rx_pcm_long(i2s_dev_t *hw)
  */
 static inline void i2s_ll_tx_pdm_cfg(i2s_dev_t *hw, uint32_t sample_rate)
 {
-    uint32_t fp = 96;
-    uint32_t fs = sample_rate / 1000 * 10;
+    uint32_t fp = 960;
+    uint32_t fs = sample_rate / 100;
     hw->pdm_freq_conf.tx_pdm_fp = fp;
     hw->pdm_freq_conf.tx_pdm_fs = fs;
     hw->pdm_conf.tx_sinc_osr2 = fp/fs;

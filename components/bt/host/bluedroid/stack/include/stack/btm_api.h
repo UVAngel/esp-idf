@@ -151,11 +151,13 @@ typedef struct {
 typedef enum{
     BTM_WHITELIST_REMOVE     = 0X00,
     BTM_WHITELIST_ADD        = 0X01,
+    BTM_WHITELIST_CLEAR      = 0x02,
 }tBTM_WL_OPERATION;
 
 
 typedef void (tBTM_DEV_STATUS_CB) (tBTM_DEV_STATUS status);
 
+typedef void (tBTM_GET_DEV_NAME_CBACK) (UINT8 status, char *name);
 
 /* Callback function for when a vendor specific event occurs. The length and
 ** array of returned parameter bytes are included. This asynchronous event
@@ -188,7 +190,7 @@ typedef void (tBTM_SET_PKT_DATA_LENGTH_CBACK) (UINT8 status, tBTM_LE_SET_PKT_DAT
 
 typedef void (tBTM_SET_RAND_ADDR_CBACK) (UINT8 status);
 
-typedef void (tBTM_ADD_WHITELIST_CBACK) (UINT8 status, tBTM_WL_OPERATION wl_opration);
+typedef void (tBTM_UPDATE_WHITELIST_CBACK) (UINT8 status, tBTM_WL_OPERATION wl_opration);
 
 typedef void (tBTM_SET_LOCAL_PRIVACY_CBACK) (UINT8 status);
 
@@ -765,6 +767,7 @@ typedef struct {
     FLOW_SPEC flow;
     UINT16 handle;
     UINT8 status;
+    BD_ADDR     rem_bda;
 } tBTM_QOS_SETUP_CMPL;
 
 
@@ -1450,7 +1453,6 @@ typedef UINT8 tBTM_IO_CAP;
 #define BTM_BLE_RESPONDER_KEY_SIZE 15
 #define BTM_BLE_MAX_KEY_SIZE       16
 #define BTM_BLE_MIN_KEY_SIZE       7
-#define BTM_BLE_APPL_ENC_KEY_SIZE  7
 
 typedef UINT8 tBTM_AUTH_REQ;
 

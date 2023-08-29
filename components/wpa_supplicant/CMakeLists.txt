@@ -40,7 +40,10 @@ set(srcs "port/os_xtensa.c"
     "src/crypto/sha1-internal.c"
     "src/crypto/sha1-pbkdf2.c"
     "src/crypto/sha1.c"
+    "src/crypto/sha1-tprf.c"
     "src/crypto/sha256-internal.c"
+    "src/crypto/sha384-internal.c"
+    "src/crypto/sha512-internal.c"
     "src/crypto/sha256.c"
     "src/crypto/sha1-tlsprf.c"
     "src/crypto/sha256-tlsprf.c"
@@ -62,6 +65,9 @@ set(srcs "port/os_xtensa.c"
     "src/esp_supplicant/esp_wpas_glue.c"
     "src/esp_supplicant/esp_wps.c"
     "src/esp_supplicant/esp_wpa3.c"
+    "src/eap_peer/eap_fast.c"
+    "src/eap_peer/eap_fast_common.c"
+    "src/eap_peer/eap_fast_pac.c"
     "src/rsn_supp/pmksa_cache.c"
     "src/rsn_supp/wpa.c"
     "src/rsn_supp/wpa_ie.c"
@@ -111,7 +117,7 @@ idf_component_register(SRCS "${srcs}" "${tls_src}"
                     PRIV_INCLUDE_DIRS src
                     PRIV_REQUIRES mbedtls esp_timer)
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-strict-aliasing)
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-strict-aliasing -Wno-write-strings)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
     __ets__
     ESP_SUPPLICANT
@@ -121,6 +127,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     EAP_TTLS
     EAP_TLS
     EAP_PEAP
+    EAP_FAST
     USE_WPA2_TASK
     CONFIG_WPS2
     CONFIG_WPS_PIN
@@ -135,6 +142,9 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
 
 if(CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE)
     target_compile_definitions(${COMPONENT_LIB} PRIVATE CONFIG_WPA3_SAE)
+endif()
+if(CONFIG_WPA_WPS_STRICT)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE CONFIG_WPS_STRICT)
 endif()
 
 set_property(TARGET ${COMPONENT_LIB} APPEND PROPERTY LINK_INTERFACE_MULTIPLICITY 3)

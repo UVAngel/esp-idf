@@ -161,12 +161,14 @@ int esp_aes_setkey( esp_aes_context *ctx, const unsigned char *key,
 static void esp_aes_setkey_hardware( esp_aes_context *ctx, int crypt_mode)
 {
     const uint32_t MODE_DECRYPT_BIT = 4;
+    uint32_t key_word;
     unsigned mode_reg_base = (crypt_mode == ESP_AES_ENCRYPT) ? 0 : MODE_DECRYPT_BIT;
 
     ctx->key_in_hardware = 0;
-
+    /* Memcpy to avoid potential unaligned access */
     for (int i = 0; i < ctx->key_bytes / 4; ++i) {
-        REG_WRITE(AES_KEY_BASE + i * 4, *(((uint32_t *)ctx->key) + i));
+        memcpy(&key_word, ctx->key + 4 * i, 4);
+        REG_WRITE(AES_KEY_BASE + i * 4,  key_word);
         ctx->key_in_hardware += 4;
     }
 
@@ -199,11 +201,13 @@ static inline void esp_aes_mode_init(esp_aes_mode_t mode)
  */
 static inline void esp_aes_set_iv(uint8_t *iv)
 {
-    uint32_t *iv_words = (uint32_t*)iv;
     uint32_t *reg_addr_buf = (uint32_t *)(AES_IV_BASE);
+    uint32_t iv_word;
 
     for (int i = 0; i<IV_WORDS; i++ ) {
-        REG_WRITE(&reg_addr_buf[i], iv_words[i]);
+        /* Memcpy to avoid potential unaligned access */
+        memcpy(&iv_word, iv + 4 * i, sizeof(iv_word));
+        REG_WRITE(&reg_addr_buf[i], iv_word);
     }
 }
 
@@ -405,7 +409,8 @@ static int esp_aes_process_dma(esp_aes_context *ctx, const unsigned char *input,
 {
     lldesc_t stream_in_desc, stream_out_desc;
     lldesc_t *in_desc_head, *out_desc_head;
-    lldesc_t *block_desc = NULL, *block_in_desc, *block_out_desc;
+    lldesc_t *out_desc_tail = NULL; /* pointer to the final output descriptor */
+    lldesc_t *block_desc = NULL, *block_in_desc = NULL, *block_out_desc = NULL;
     size_t lldesc_num;
     uint8_t stream_in[16] = {};
     unsigned stream_bytes = len % AES_BLOCK_BYTES; // bytes which aren't in a full block
@@ -472,8 +477,10 @@ static int esp_aes_process_dma(esp_aes_context *ctx, const unsigned char *input,
         block_in_desc = block_desc;
         block_out_desc = block_desc + lldesc_num;
 
-        lldesc_setup_link(block_desc, input, block_bytes, 0);
-        lldesc_setup_link(block_desc + lldesc_num, output, block_bytes, 0);
+        lldesc_setup_link(block_in_desc, input, block_bytes, 0);
+        lldesc_setup_link(block_out_desc, output, block_bytes, 0);
+
+        out_desc_tail = &block_out_desc[lldesc_num - 1];
     }
 
     /* Any leftover bytes which are appended as an additional DMA list */
@@ -488,6 +495,8 @@ static int esp_aes_process_dma(esp_aes_context *ctx, const unsigned char *input,
             block_in_desc[lldesc_num - 1].empty = (uint32_t)&stream_in_desc;
             block_out_desc[lldesc_num - 1].empty = (uint32_t)&stream_out_desc;
         }
+
+        out_desc_tail = &stream_out_desc;
     }
 
     // block buffers are sent to DMA first, unless there aren't any
@@ -516,7 +525,7 @@ static int esp_aes_process_dma(esp_aes_context *ctx, const unsigned char *input,
 
     /* Start AES operation */
     REG_WRITE(AES_TRIGGER_REG, 1);
-    esp_aes_dma_wait_complete(use_intr, out_desc_head);
+    esp_aes_dma_wait_complete(use_intr, out_desc_tail);
 
 
 
@@ -1067,12 +1076,9 @@ static void increment32_j0(esp_gcm_context *ctx, uint8_t *j)
 /* Function to xor two data blocks */
 static void xor_data(uint8_t *d, const uint8_t *s)
 {
-    uint32_t *dst = (uint32_t *) d;
-    uint32_t *src = (uint32_t *) s;
-    *dst++ ^= *src++;
-    *dst++ ^= *src++;
-    *dst++ ^= *src++;
-    *dst++ ^= *src++;
+    for (int i = 0; i < AES_BLOCK_BYTES; i++) {
+        d[i] ^= s[i];
+    }
 }
 
 

@@ -777,6 +777,10 @@ tBTA_AV_EVT bta_av_proc_meta_cmd(tAVRC_RESPONSE  *p_rc_rsp, tBTA_AV_RC_MSG *p_ms
         case AVRC_PDU_SET_ABSOLUTE_VOLUME:
             p_rc_rsp->rsp.status = BTA_AV_STS_NO_RSP;
             break;
+        case AVRC_PDU_SET_PLAYER_APP_VALUE:
+            /* Setting of a value by CT does not implicitly mean that the setting will take effect on TG. */
+            /* The setting shall take effect after a play command from CT. */
+            break;
         default:
             APPL_TRACE_WARNING("%s unhandled RC vendor PDU: 0x%x", __FUNCTION__, pdu);
             break;
@@ -1171,6 +1175,7 @@ void bta_av_conn_chg(tBTA_AV_DATA *p_data)
         }
     } else {
         if ((p_cb->conn_audio & mask) && bta_av_cb.audio_open_cnt) {
+            bta_sys_conn_close(TSEP_TO_SYS_ID(p_scb->seps[p_scb->sep_idx].tsep), bta_av_cb.audio_open_cnt, p_scb->peer_addr);
             /* this channel is still marked as open. decrease the count */
             bta_av_cb.audio_open_cnt--;
         }

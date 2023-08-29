@@ -55,6 +55,7 @@ uint64_t g_wifi_feature_caps =
 #endif
 0;
 
+
 static const char* TAG = "wifi_init";
 
 static void __attribute__((constructor)) s_set_default_wifi_log_level(void)
@@ -122,7 +123,7 @@ esp_err_t esp_wifi_deinit(void)
 
     if (esp_wifi_get_user_init_flag_internal()) {
         ESP_LOGE(TAG, "Wi-Fi not stop");
-        return ESP_FAIL; 
+        return ESP_ERR_WIFI_NOT_STOPPED;
     }
 
     esp_supplicant_deinit();
@@ -241,3 +242,4 @@ void wifi_apb80m_release(void)
     esp_pm_lock_release(s_wifi_modem_sleep_lock);
 }
 #endif //CONFIG_PM_ENABLE
+

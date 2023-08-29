@@ -487,10 +487,6 @@ const char * wpa_cipher_txt(int cipher)
  * PTK = PRF-X(PMK, "Pairwise key expansion",
  *             Min(AA, SA) || Max(AA, SA) ||
  *             Min(ANonce, SNonce) || Max(ANonce, SNonce))
- *
- * STK = PRF-X(SMK, "Peer key expansion",
- *             Min(MAC_I, MAC_P) || Max(MAC_I, MAC_P) ||
- *             Min(INonce, PNonce) || Max(INonce, PNonce))
  */
 void wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 		    const u8 *addr1, const u8 *addr2,
@@ -671,6 +667,16 @@ int wpa_cipher_put_suites(u8 *pos, int ciphers)
 	}
 
 	return num_suites;
+}
+
+unsigned int wpa_mic_len(int akmp)
+{
+    /* The following code is supposed to be used for 192 bit encryption support only
+	if (akmp == WPA_KEY_MGMT_IEEE8021X_SUITE_B_192)
+		return 24;
+    */
+
+	return 16;
 }
 
 #endif // ESP_SUPPLICANT

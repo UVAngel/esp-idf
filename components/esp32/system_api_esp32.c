@@ -57,7 +57,6 @@ void IRAM_ATTR esp_restart_noos(void)
     wdt_hal_config_stage(&rtc_wdt_ctx, WDT_STAGE0, stage_timeout_ticks, WDT_STAGE_ACTION_RESET_SYSTEM);
     wdt_hal_config_stage(&rtc_wdt_ctx, WDT_STAGE1, stage_timeout_ticks, WDT_STAGE_ACTION_RESET_RTC);
     wdt_hal_set_flashboot_en(&rtc_wdt_ctx, true);
-    wdt_hal_write_protect_enable(&rtc_wdt_ctx);
 
     // Reset and stall the other CPU.
     // CPU must be reset before stalling, in case it was running a s32c1i
@@ -121,7 +120,9 @@ void IRAM_ATTR esp_restart_noos(void)
 
     // Reset timer/spi/uart
     DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG,
-            DPORT_TIMERS_RST | DPORT_SPI01_RST | DPORT_SPI2_RST | DPORT_SPI3_RST | DPORT_SPI_DMA_RST | DPORT_UART_RST | DPORT_UART1_RST | DPORT_UART2_RST);
+            DPORT_TIMERS_RST | DPORT_SPI01_RST | DPORT_SPI2_RST | DPORT_SPI3_RST | DPORT_SPI_DMA_RST |
+            //UART TX FIFO cannot be reset correctly on ESP32, so reset the UART memory by DPORT here.
+            DPORT_UART_RST | DPORT_UART1_RST | DPORT_UART2_RST | DPORT_UART_MEM_RST);
     DPORT_REG_WRITE(DPORT_PERIP_RST_EN_REG, 0);
 
     // Set CPU back to XTAL source, no PLL, same as hard reset

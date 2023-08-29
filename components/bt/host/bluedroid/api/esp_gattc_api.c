@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 
@@ -21,6 +13,7 @@
 #include "btc_gatt_util.h"
 #include "stack/l2cdefs.h"
 #include "stack/l2c_api.h"
+#include "gatt_int.h"
 
 
 #if (GATTC_INCLUDED == TRUE)
@@ -38,7 +31,7 @@ esp_err_t esp_ble_gattc_register_callback(esp_gattc_cb_t callback)
 
 esp_err_t esp_ble_gattc_app_register(uint16_t app_id)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -52,12 +45,12 @@ esp_err_t esp_ble_gattc_app_register(uint16_t app_id)
     msg.act = BTC_GATTC_ACT_APP_REGISTER;
     arg.app_reg.app_id = app_id;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_app_unregister(esp_gatt_if_t gattc_if)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -67,12 +60,12 @@ esp_err_t esp_ble_gattc_app_unregister(esp_gatt_if_t gattc_if)
     msg.act = BTC_GATTC_ACT_APP_UNREGISTER;
     arg.app_unreg.gattc_if = gattc_if;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_open(esp_gatt_if_t gattc_if, esp_bd_addr_t remote_bda, esp_ble_addr_type_t remote_addr_type, bool is_direct)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -85,12 +78,12 @@ esp_err_t esp_ble_gattc_open(esp_gatt_if_t gattc_if, esp_bd_addr_t remote_bda, e
     arg.open.remote_addr_type = remote_addr_type;
     arg.open.is_direct = is_direct;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_close (esp_gatt_if_t gattc_if, uint16_t conn_id)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -100,12 +93,12 @@ esp_err_t esp_ble_gattc_close (esp_gatt_if_t gattc_if, uint16_t conn_id)
     msg.act = BTC_GATTC_ACT_CLOSE;
     arg.close.conn_id = BTC_GATT_CREATE_CONN_ID(gattc_if, conn_id);
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_send_mtu_req (esp_gatt_if_t gattc_if, uint16_t conn_id)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -115,12 +108,12 @@ esp_err_t esp_ble_gattc_send_mtu_req (esp_gatt_if_t gattc_if, uint16_t conn_id)
     msg.act = BTC_GATTC_ACT_CFG_MTU;
     arg.cfg_mtu.conn_id = BTC_GATT_CREATE_CONN_ID(gattc_if, conn_id);
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_search_service(esp_gatt_if_t gattc_if, uint16_t conn_id, esp_bt_uuid_t *filter_uuid)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -137,7 +130,7 @@ esp_err_t esp_ble_gattc_search_service(esp_gatt_if_t gattc_if, uint16_t conn_id,
         arg.search_srvc.filter_uuid_enable = false;
     }
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_gatt_status_t esp_ble_gattc_get_service(esp_gatt_if_t gattc_if, uint16_t conn_id, esp_bt_uuid_t *svc_uuid,
@@ -178,7 +171,7 @@ esp_gatt_status_t esp_ble_gattc_get_all_char(esp_gatt_if_t gattc_if,
 
 esp_gatt_status_t esp_ble_gattc_get_all_descr(esp_gatt_if_t gattc_if,
                                               uint16_t conn_id,
-                                              uint16_t char_handle,                                            
+                                              uint16_t char_handle,
                                               esp_gattc_descr_elem_t *result,
                                               uint16_t *count, uint16_t offset)
 {
@@ -196,7 +189,7 @@ esp_gatt_status_t esp_ble_gattc_get_all_descr(esp_gatt_if_t gattc_if,
     return btc_ble_gattc_get_all_descr(conn_hdl, char_handle, result, count, offset);
 }
 
-esp_gatt_status_t esp_ble_gattc_get_char_by_uuid(esp_gatt_if_t gattc_if, 
+esp_gatt_status_t esp_ble_gattc_get_char_by_uuid(esp_gatt_if_t gattc_if,
                                                  uint16_t conn_id,
                                                  uint16_t start_handle,
                                                  uint16_t end_handle,
@@ -252,7 +245,7 @@ esp_gatt_status_t esp_ble_gattc_get_descr_by_char_handle(esp_gatt_if_t gattc_if,
         *count = 0;
         return ESP_GATT_INVALID_HANDLE;
     }
-    
+
     if (result == NULL || count == NULL || *count == 0) {
         return ESP_GATT_INVALID_PDU;
     }
@@ -326,14 +319,20 @@ esp_gatt_status_t esp_ble_gattc_get_db(esp_gatt_if_t gattc_if, uint16_t conn_id,
 }
 
 
-esp_err_t esp_ble_gattc_read_char (esp_gatt_if_t gattc_if, 
+esp_err_t esp_ble_gattc_read_char (esp_gatt_if_t gattc_if,
                                    uint16_t conn_id, uint16_t handle,
                                    esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -347,7 +346,7 @@ esp_err_t esp_ble_gattc_read_char (esp_gatt_if_t gattc_if,
     arg.read_char.handle = handle;
     arg.read_char.auth_req = auth_req;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_read_by_type (esp_gatt_if_t gattc_if,
@@ -357,13 +356,19 @@ esp_err_t esp_ble_gattc_read_by_type (esp_gatt_if_t gattc_if,
                                       esp_bt_uuid_t *uuid,
                                       esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
 
     if (uuid == NULL) {
         return ESP_GATT_ILLEGAL_PARAMETER;
+    }
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
     }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
@@ -380,17 +385,23 @@ esp_err_t esp_ble_gattc_read_by_type (esp_gatt_if_t gattc_if,
     arg.read_by_type.auth_req = auth_req;
     memcpy(&(arg.read_by_type.uuid), uuid, sizeof(esp_bt_uuid_t));
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_read_multiple(esp_gatt_if_t gattc_if,
                                       uint16_t conn_id, esp_gattc_multi_t *read_multi,
                                       esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -410,7 +421,7 @@ esp_err_t esp_ble_gattc_read_multiple(esp_gatt_if_t gattc_if,
         LOG_ERROR("%s(), the num_attr should not be 0.", __func__);
         return ESP_FAIL;
     }
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 
@@ -418,10 +429,16 @@ esp_err_t esp_ble_gattc_read_char_descr (esp_gatt_if_t gattc_if,
                                          uint16_t conn_id, uint16_t handle,
                                          esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -435,7 +452,7 @@ esp_err_t esp_ble_gattc_read_char_descr (esp_gatt_if_t gattc_if,
     arg.read_descr.handle = handle;
     arg.read_descr.auth_req = auth_req;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_write_char(esp_gatt_if_t gattc_if,
@@ -445,10 +462,16 @@ esp_err_t esp_ble_gattc_write_char(esp_gatt_if_t gattc_if,
                                    esp_gatt_write_type_t write_type,
                                    esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -467,7 +490,8 @@ esp_err_t esp_ble_gattc_write_char(esp_gatt_if_t gattc_if,
     if(write_type == ESP_GATT_WRITE_TYPE_NO_RSP){
         l2ble_update_att_acl_pkt_num(L2CA_ADD_BTC_NUM, NULL);
     }
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy,
+                btc_gattc_arg_deep_free) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_write_char_descr (esp_gatt_if_t gattc_if,
@@ -477,10 +501,16 @@ esp_err_t esp_ble_gattc_write_char_descr (esp_gatt_if_t gattc_if,
                                           esp_gatt_write_type_t write_type,
                                           esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -499,20 +529,27 @@ esp_err_t esp_ble_gattc_write_char_descr (esp_gatt_if_t gattc_if,
     if(write_type == ESP_GATT_WRITE_TYPE_NO_RSP){
         l2ble_update_att_acl_pkt_num(L2CA_ADD_BTC_NUM, NULL);
     }
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy,
+                btc_gattc_arg_deep_free) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
-esp_err_t esp_ble_gattc_prepare_write(esp_gatt_if_t gattc_if, 
+esp_err_t esp_ble_gattc_prepare_write(esp_gatt_if_t gattc_if,
                                       uint16_t conn_id, uint16_t handle,
                                       uint16_t offset,
                                       uint16_t value_len,
                                       uint8_t *value,
                                       esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -529,7 +566,8 @@ esp_err_t esp_ble_gattc_prepare_write(esp_gatt_if_t gattc_if,
     arg.prep_write.value = value;
     arg.prep_write.auth_req = auth_req;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy,
+                btc_gattc_arg_deep_free) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_prepare_write_char_descr(esp_gatt_if_t gattc_if,
@@ -539,10 +577,16 @@ esp_err_t esp_ble_gattc_prepare_write_char_descr(esp_gatt_if_t gattc_if,
                                                  uint8_t *value,
                                                  esp_gatt_auth_req_t auth_req)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    tGATT_TCB       *p_tcb = gatt_get_tcb_by_idx(conn_id);
+    if (!gatt_check_connection_state_by_tcb(p_tcb)) {
+        LOG_WARN("%s, The connection not created.", __func__);
+        return ESP_ERR_INVALID_STATE;
+    }
 
     if (L2CA_CheckIsCongest(L2CAP_ATT_CID, conn_id)) {
         LOG_DEBUG("%s, the l2cap chanel is congest.", __func__);
@@ -559,12 +603,13 @@ esp_err_t esp_ble_gattc_prepare_write_char_descr(esp_gatt_if_t gattc_if,
     arg.prep_write_descr.value = value;
     arg.prep_write_descr.auth_req = auth_req;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), btc_gattc_arg_deep_copy,
+                btc_gattc_arg_deep_free) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_execute_write (esp_gatt_if_t gattc_if, uint16_t conn_id, bool is_execute)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -575,13 +620,13 @@ esp_err_t esp_ble_gattc_execute_write (esp_gatt_if_t gattc_if, uint16_t conn_id,
     arg.exec_write.conn_id = BTC_GATT_CREATE_CONN_ID(gattc_if, conn_id);
     arg.exec_write.is_execute = is_execute;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_register_for_notify (esp_gatt_if_t gattc_if,
                                              esp_bd_addr_t server_bda, uint16_t handle)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -593,13 +638,13 @@ esp_err_t esp_ble_gattc_register_for_notify (esp_gatt_if_t gattc_if,
     memcpy(arg.reg_for_notify.remote_bda, server_bda, sizeof(esp_bd_addr_t));
     arg.reg_for_notify.handle = handle;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_unregister_for_notify (esp_gatt_if_t gattc_if,
                                                esp_bd_addr_t server_bda, uint16_t handle)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -610,12 +655,12 @@ esp_err_t esp_ble_gattc_unregister_for_notify (esp_gatt_if_t gattc_if,
     arg.unreg_for_notify.gattc_if = gattc_if;
     arg.unreg_for_notify.handle = handle;
     memcpy(arg.unreg_for_notify.remote_bda, server_bda, sizeof(esp_bd_addr_t));
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_cache_refresh(esp_bd_addr_t remote_bda)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -625,12 +670,12 @@ esp_err_t esp_ble_gattc_cache_refresh(esp_bd_addr_t remote_bda)
     msg.act = BTC_GATTC_ACT_CACHE_REFRESH;
     memcpy(arg.cache_refresh.remote_bda, remote_bda, sizeof(esp_bd_addr_t));
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_cache_clean(esp_bd_addr_t remote_bda)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -640,12 +685,12 @@ esp_err_t esp_ble_gattc_cache_clean(esp_bd_addr_t remote_bda)
     msg.act = BTC_GATTC_ACT_CACHE_CLEAN;
     memcpy(arg.cache_clean.remote_bda, remote_bda, sizeof(esp_bd_addr_t));
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_cache_assoc(esp_gatt_if_t gattc_if, esp_bd_addr_t src_addr, esp_bd_addr_t assoc_addr, bool is_assoc)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -658,12 +703,12 @@ esp_err_t esp_ble_gattc_cache_assoc(esp_gatt_if_t gattc_if, esp_bd_addr_t src_ad
     memcpy(arg.cache_assoc.src_addr, src_addr, sizeof(esp_bd_addr_t));
     memcpy(arg.cache_assoc.assoc_addr, assoc_addr, sizeof(esp_bd_addr_t));
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_ble_gattc_cache_get_addr_list(esp_gatt_if_t gattc_if)
 {
-    btc_msg_t msg;
+    btc_msg_t msg = {0};
     btc_ble_gattc_args_t arg;
 
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
@@ -672,7 +717,7 @@ esp_err_t esp_ble_gattc_cache_get_addr_list(esp_gatt_if_t gattc_if)
     msg.pid = BTC_PID_GATTC;
     msg.act = BTC_GATTC_ATC_CACHE_GET_ADDR_LIST;
     arg.get_addr_list.gattc_if = gattc_if;
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_ble_gattc_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 #endif  ///GATTC_INCLUDED == TRUE

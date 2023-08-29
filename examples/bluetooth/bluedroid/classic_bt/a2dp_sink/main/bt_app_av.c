@@ -57,7 +57,8 @@ void bt_app_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
     switch (event) {
     case ESP_A2D_CONNECTION_STATE_EVT:
     case ESP_A2D_AUDIO_STATE_EVT:
-    case ESP_A2D_AUDIO_CFG_EVT: {
+    case ESP_A2D_AUDIO_CFG_EVT:
+    case ESP_A2D_PROF_STATE_EVT: {
         bt_app_work_dispatch(bt_av_hdl_a2d_evt, event, param, sizeof(esp_a2d_cb_param_t), NULL);
         break;
     }
@@ -113,6 +114,7 @@ void bt_app_rc_tg_cb(esp_avrc_tg_cb_event_t event, esp_avrc_tg_cb_param_t *param
     case ESP_AVRC_TG_PASSTHROUGH_CMD_EVT:
     case ESP_AVRC_TG_SET_ABSOLUTE_VOLUME_CMD_EVT:
     case ESP_AVRC_TG_REGISTER_NOTIFICATION_EVT:
+    case ESP_AVRC_TG_SET_PLAYER_APP_VALUE_EVT:
         bt_app_work_dispatch(bt_av_hdl_avrc_tg_evt, event, param, sizeof(esp_avrc_tg_cb_param_t), NULL);
         break;
     default:
@@ -155,6 +157,7 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
         // for now only SBC stream is supported
         if (a2d->audio_cfg.mcc.type == ESP_A2D_MCT_SBC) {
             int sample_rate = 16000;
+            int ch_count = 2;
             char oct0 = a2d->audio_cfg.mcc.cie.sbc[0];
             if (oct0 & (0x01 << 6)) {
                 sample_rate = 32000;
@@ -163,7 +166,11 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
             } else if (oct0 & (0x01 << 4)) {
                 sample_rate = 48000;
             }
-            i2s_set_clk(0, sample_rate, 16, 2);
+            if (oct0 & (0x01 << 3)) {
+                ch_count = 1;
+            }
+
+            i2s_set_clk(0, sample_rate, 16, ch_count);
 
             ESP_LOGI(BT_AV_TAG, "Configure audio player %x-%x-%x-%x",
                      a2d->audio_cfg.mcc.cie.sbc[0],
@@ -171,6 +178,15 @@ static void bt_av_hdl_a2d_evt(uint16_t event, void *p_param)
                      a2d->audio_cfg.mcc.cie.sbc[2],
                      a2d->audio_cfg.mcc.cie.sbc[3]);
             ESP_LOGI(BT_AV_TAG, "Audio player configured, sample rate=%d", sample_rate);
+        }
+        break;
+    }
+    case ESP_A2D_PROF_STATE_EVT: {
+        a2d = (esp_a2d_cb_param_t *)(p_param);
+        if (ESP_A2D_INIT_SUCCESS == a2d->a2d_prof_stat.init_state) {
+            ESP_LOGI(BT_AV_TAG,"A2DP PROF STATE: Init Compl\n");
+        } else {
+            ESP_LOGI(BT_AV_TAG,"A2DP PROF STATE: Deinit Compl\n");
         }
         break;
     }

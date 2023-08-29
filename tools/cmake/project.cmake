@@ -6,11 +6,15 @@ cmake_minimum_required(VERSION 3.5)
 # call.
 include(${CMAKE_CURRENT_LIST_DIR}/idf.cmake)
 
+# setting PYTHON variable here for compatibility only, new code should use
+# idf_build_get_property(variable PYTHON)
+idf_build_get_property(PYTHON PYTHON)
+if(NOT PYTHON)
+    message(FATAL_ERROR "Internal error, PYTHON build property not set correctly.")
+endif()
+
+# legacy variable for compatibility
 set(IDFTOOL ${PYTHON} "${IDF_PATH}/tools/idf.py")
-# Internally, the Python interpreter is already set to 'python'. Re-set here
-# to be absolutely sure.
-set_default(PYTHON "python")
-idf_build_set_property(PYTHON ${PYTHON})
 
 # On processing, checking Python required modules can be turned off if it was
 # already checked externally.
@@ -32,6 +36,13 @@ endif()
 # Initialize build target for this build using the environment variable or
 # value passed externally.
 __target_init()
+
+# Enable the component manager for regular projects if not explicitly disabled.
+if(NOT "$ENV{IDF_COMPONENT_MANAGER}" EQUAL "0")
+    idf_build_set_property(IDF_COMPONENT_MANAGER 1)
+endif()
+# Set component manager interface version
+idf_build_set_property(__COMPONENT_MANAGER_INTERFACE_VERSION 0)
 
 #
 # Get the project version from either a version file or the Git revision. This is passed
@@ -168,8 +179,6 @@ function(__project_init components_var test_components_var)
         endif()
     endfunction()
 
-    idf_build_set_property(IDF_COMPONENT_MANAGER "$ENV{IDF_COMPONENT_MANAGER}")
-
     # Add component directories to the build, given the component filters, exclusions
     # extra directories, etc. passed from the root CMakeLists.txt.
     if(COMPONENT_DIRS)
@@ -183,39 +192,6 @@ function(__project_init components_var test_components_var)
         # Add project manifest and lock file to the list of dependencies
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/idf_project.yml")
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/dependencies.lock")
-
-        idf_build_get_property(idf_component_manager IDF_COMPONENT_MANAGER)
-        if(idf_component_manager)
-            if(idf_component_manager EQUAL "0")
-                message(VERBOSE "IDF Component manager was explicitly disabled by setting IDF_COMPONENT_MANAGER=0")
-            elseif(idf_component_manager EQUAL "1")
-                set(managed_components_list_file ${CMAKE_BINARY_DIR}/managed_components_list.temp.cmake)
-
-                # Call for package manager to prepare remote dependencies
-                execute_process(COMMAND ${PYTHON}
-                    "-m"
-                    "idf_component_manager.prepare_components"
-                    "--project_dir=${CMAKE_CURRENT_LIST_DIR}"
-                    "prepare_dependencies"
-                    "--managed_components_list_file=${managed_components_list_file}"
-                    RESULT_VARIABLE result
-                    ERROR_VARIABLE error)
-
-                if(NOT result EQUAL 0)
-                    message(FATAL_ERROR "${error}")
-                endif()
-
-                # Include managed components
-                include(${managed_components_list_file})
-                file(REMOVE ${managed_components_list_file})
-            else()
-                message(WARNING "IDF_COMPONENT_MANAGER environment variable is set to unknown value "
-                        "\"${idf_component_manager}\". If you want to use component manager set it to 1.")
-            endif()
-        elseif(EXISTS "${CMAKE_CURRENT_LIST_DIR}/idf_project.yml")
-            message(WARNING "\"idf_project.yml\" file is found in project directory, "
-                    "but component manager is not enabled. Please set IDF_COMPONENT_MANAGER environment variable.")
-        endif()
 
         # Look for components in the usual places: CMAKE_CURRENT_LIST_DIR/main,
         # CMAKE_CURRENT_LIST_DIR/components, and the extra component dirs

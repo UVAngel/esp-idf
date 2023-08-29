@@ -29,6 +29,8 @@
 #include "esp_crc.h"
 #include "espnow_example.h"
 
+#define ESPNOW_MAXDELAY 512
+
 static const char *TAG = "espnow_example";
 
 static xQueueHandle s_example_espnow_queue;
@@ -48,6 +50,7 @@ static void example_wifi_init(void)
     ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
     ESP_ERROR_CHECK( esp_wifi_set_mode(ESPNOW_WIFI_MODE) );
     ESP_ERROR_CHECK( esp_wifi_start());
+    ESP_ERROR_CHECK( esp_wifi_set_channel(CONFIG_ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
 #if CONFIG_ESPNOW_ENABLE_LONG_RANGE
     ESP_ERROR_CHECK( esp_wifi_set_protocol(ESPNOW_WIFI_IF, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N|WIFI_PROTOCOL_LR) );
@@ -70,7 +73,7 @@ static void example_espnow_send_cb(const uint8_t *mac_addr, esp_now_send_status_
     evt.id = EXAMPLE_ESPNOW_SEND_CB;
     memcpy(send_cb->mac_addr, mac_addr, ESP_NOW_ETH_ALEN);
     send_cb->status = status;
-    if (xQueueSend(s_example_espnow_queue, &evt, portMAX_DELAY) != pdTRUE) {
+    if (xQueueSend(s_example_espnow_queue, &evt, ESPNOW_MAXDELAY) != pdTRUE) {
         ESP_LOGW(TAG, "Send send queue fail");
     }
 }
@@ -94,7 +97,7 @@ static void example_espnow_recv_cb(const uint8_t *mac_addr, const uint8_t *data,
     }
     memcpy(recv_cb->data, data, len);
     recv_cb->data_len = len;
-    if (xQueueSend(s_example_espnow_queue, &evt, portMAX_DELAY) != pdTRUE) {
+    if (xQueueSend(s_example_espnow_queue, &evt, ESPNOW_MAXDELAY) != pdTRUE) {
         ESP_LOGW(TAG, "Send receive queue fail");
         free(recv_cb->data);
     }
@@ -316,13 +319,13 @@ static esp_err_t example_espnow_init(void)
 
     /* Initialize sending parameters. */
     send_param = malloc(sizeof(example_espnow_send_param_t));
-    memset(send_param, 0, sizeof(example_espnow_send_param_t));
     if (send_param == NULL) {
         ESP_LOGE(TAG, "Malloc send parameter fail");
         vSemaphoreDelete(s_example_espnow_queue);
         esp_now_deinit();
         return ESP_FAIL;
     }
+    memset(send_param, 0, sizeof(example_espnow_send_param_t));
     send_param->unicast = false;
     send_param->broadcast = true;
     send_param->state = 0;

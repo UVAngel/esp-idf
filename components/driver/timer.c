@@ -213,11 +213,17 @@ static void IRAM_ATTR timer_isr_default(void *arg)
         uint32_t intr_status = 0;
         timer_hal_get_intr_status(&(timer_obj->hal), &intr_status);
         if (intr_status & BIT(timer_obj->hal.idx)) {
-            is_awoken = timer_obj->timer_isr_fun.fn(timer_obj->timer_isr_fun.args);
-            //Clear intrrupt status
+            // Clear intrrupt status
             timer_hal_clear_intr_status(&(timer_obj->hal));
-            //After the alarm has been triggered, we need enable it again, so it is triggered the next time.
-            timer_hal_set_alarm_enable(&(timer_obj->hal), TIMER_ALARM_EN);
+            uint64_t old_alarm_value = 0;
+            timer_hal_get_alarm_value(&(timer_obj->hal), &old_alarm_value);
+            // call user registered callback
+            is_awoken = timer_obj->timer_isr_fun.fn(timer_obj->timer_isr_fun.args);
+            // reenable alarm if required
+            uint64_t new_alarm_value = 0;
+            timer_hal_get_alarm_value(&(timer_obj->hal), &new_alarm_value);
+            bool reenable_alarm = (new_alarm_value != old_alarm_value) || timer_hal_get_auto_reload(&timer_obj->hal);
+            timer_hal_set_alarm_enable(&(timer_obj->hal), reenable_alarm);
         }
     }
     TIMER_EXIT_CRITICAL(&timer_spinlock[timer_obj->timer_isr_fun.isr_timer_group]);
@@ -314,7 +320,7 @@ esp_err_t timer_init(timer_group_t group_num, timer_idx_t timer_num, const timer
 
     TIMER_ENTER_CRITICAL(&timer_spinlock[group_num]);
     timer_hal_init(&(p_timer_obj[group_num][timer_num]->hal), group_num, timer_num);
-    timer_hal_intr_disable(&(p_timer_obj[group_num][timer_num]->hal));
+    timer_hal_reset_periph(&(p_timer_obj[group_num][timer_num]->hal));
     timer_hal_clear_intr_status(&(p_timer_obj[group_num][timer_num]->hal));
     timer_hal_set_auto_reload(&(p_timer_obj[group_num][timer_num]->hal), config->auto_reload);
     timer_hal_set_divider(&(p_timer_obj[group_num][timer_num]->hal), config->divider);
@@ -497,14 +503,14 @@ bool IRAM_ATTR timer_group_get_auto_reload_in_isr(timer_group_t group_num, timer
     return timer_hal_get_auto_reload(&(p_timer_obj[group_num][timer_num]->hal));
 }
 
-esp_err_t timer_spinlock_take(timer_group_t group_num)
+esp_err_t IRAM_ATTR timer_spinlock_take(timer_group_t group_num)
 {
     TIMER_CHECK(group_num < TIMER_GROUP_MAX, TIMER_GROUP_NUM_ERROR, ESP_ERR_INVALID_ARG);
     TIMER_ENTER_CRITICAL(&timer_spinlock[group_num]);
     return ESP_OK;
 }
 
-esp_err_t timer_spinlock_give(timer_group_t group_num)
+esp_err_t IRAM_ATTR timer_spinlock_give(timer_group_t group_num)
 {
     TIMER_CHECK(group_num < TIMER_GROUP_MAX, TIMER_GROUP_NUM_ERROR, ESP_ERR_INVALID_ARG);
     TIMER_EXIT_CRITICAL(&timer_spinlock[group_num]);

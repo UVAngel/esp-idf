@@ -1,4 +1,3 @@
-
 /*
  * WPA Supplicant - WPA state machine and EAPOL-Key processing
  * Copyright (c) 2003-2010, Jouni Malinen <j@w1.fi>
@@ -12,6 +11,7 @@
  *
  * See README and COPYING for more details.
  */
+
 #include "utils/includes.h"
 
 #include "utils/common.h"
@@ -64,6 +64,7 @@ int wpa_sm_get_key(uint8_t *ifx, int *alg, u8 *addr, int *key_idx, u8 *key, size
 void wpa_set_passphrase(char * passphrase, u8 *ssid, size_t ssid_len);
 
 void wpa_sm_set_pmk_from_pmksa(struct wpa_sm *sm);
+static bool wpa_supplicant_gtk_in_use(struct wpa_sm *sm, struct wpa_gtk_data *gd);
 static inline enum wpa_states   wpa_sm_get_state(struct wpa_sm *sm)
 {
     return sm->wpa_state;;
@@ -281,10 +282,12 @@ void   wpa_sm_key_request(struct wpa_sm *sm, int error, int pairwise)
     reply->type = sm->proto == WPA_PROTO_RSN ?
         EAPOL_KEY_TYPE_RSN : EAPOL_KEY_TYPE_WPA;
     key_info = WPA_KEY_INFO_REQUEST | ver;
-    if (sm->ptk_set)
+    if (sm->ptk_set) {
+        key_info |= WPA_KEY_INFO_SECURE;
         key_info |= WPA_KEY_INFO_MIC;
+    }
     if (error)
-        key_info |= WPA_KEY_INFO_ERROR|WPA_KEY_INFO_SECURE;
+        key_info |= WPA_KEY_INFO_ERROR;
     if (pairwise)
         key_info |= WPA_KEY_INFO_KEY_TYPE;
     WPA_PUT_BE16(reply->key_info, key_info);
@@ -651,7 +654,7 @@ failed:
 }
 
 
-int   wpa_supplicant_install_ptk(struct wpa_sm *sm)
+int   wpa_supplicant_install_ptk(struct wpa_sm *sm, int set_tx)
 {
     int keylen;
     enum wpa_alg alg;
@@ -686,7 +689,7 @@ int   wpa_supplicant_install_ptk(struct wpa_sm *sm)
     //now only use keyentry 0 for pairwise key
     sm->key_entry_valid = 5;
 
-    if (wpa_sm_set_key(&(sm->install_ptk), alg, sm->bssid, 0, 1, (sm->install_ptk).seq, WPA_KEY_RSC_LEN,
+    if (wpa_sm_set_key(&(sm->install_ptk), alg, sm->bssid, 0, set_tx, (sm->install_ptk).seq, WPA_KEY_RSC_LEN,
                (u8 *) sm->ptk.tk1, keylen,sm->key_entry_valid) < 0) {
         #ifdef DEBUG_PRINT           
         wpa_printf(MSG_DEBUG, "WPA: Failed to set PTK to the "
@@ -777,6 +780,8 @@ void   wpa_supplicant_key_neg_complete(struct wpa_sm *sm,
     wpa_sm_set_state(WPA_COMPLETED);
 
     sm->wpa_neg_complete();
+    sm->eapol1_count = 0;
+    sm->use_ext_key_id = 0;
 
     if (secure) {
         wpa_sm_mlme_setprotection(
@@ -806,11 +811,19 @@ int   wpa_supplicant_install_gtk(struct wpa_sm *sm,
        
     wpa_hexdump(MSG_DEBUG, "WPA: Group Key", gd->gtk, gd->gtk_len);
 
-    #ifdef DEBUG_PRINT    
+    /* Detect possible key reinstallation */
+    if (wpa_supplicant_gtk_in_use(sm, &(sm->gd))) {
+            wpa_printf(MSG_DEBUG,
+                    "WPA: Not reinstalling already in-use GTK to the driver (keyidx=%d tx=%d len=%d)",
+                    gd->keyidx, gd->tx, gd->gtk_len);
+            return 0;
+    }
+    #ifdef DEBUG_PRINT
     wpa_printf(MSG_DEBUG, "WPA: Installing GTK to the driver "
            "(keyidx=%d tx=%d len=%d).\n", gd->keyidx, gd->tx,
            gd->gtk_len);
-    #endif    
+    #endif
+
     wpa_hexdump(MSG_DEBUG, "WPA: RSC", key_rsc, gd->key_rsc_len);
     if (sm->group_cipher == WPA_CIPHER_TKIP) {
         /* Swap Tx/Rx keys for Michael MIC */
@@ -847,7 +860,7 @@ int   wpa_supplicant_install_gtk(struct wpa_sm *sm,
     return 0;
 }
 
-bool wpa_supplicant_gtk_in_use(struct wpa_sm *sm, struct wpa_gtk_data *gd)
+static bool wpa_supplicant_gtk_in_use(struct wpa_sm *sm, struct wpa_gtk_data *gd)
 {
     u8 *_gtk = gd->gtk;
     u8 gtk_buf[32];
@@ -856,8 +869,6 @@ bool wpa_supplicant_gtk_in_use(struct wpa_sm *sm, struct wpa_gtk_data *gd)
     int alg;
     u8 bssid[6];
     int keyidx;
-
-    wpa_hexdump(MSG_DEBUG, "WPA: Group Key", gd->gtk, gd->gtk_len);
 
     #ifdef DEBUG_PRINT
     wpa_printf(MSG_DEBUG, "WPA: Judge GTK: (keyidx=%d len=%d).", gd->keyidx, gd->gtk_len);
@@ -871,19 +882,10 @@ bool wpa_supplicant_gtk_in_use(struct wpa_sm *sm, struct wpa_gtk_data *gd)
         _gtk = gtk_buf;
     }
 
-    //check if gtk is in use.
-    if (wpa_sm_get_key(&ifx, &alg, bssid, &keyidx, gtk_get, gd->gtk_len, gd->keyidx) == 0) {
+    if (wpa_sm_get_key(&ifx, &alg, bssid, &keyidx, gtk_get, gd->gtk_len, gd->keyidx - 2) == 0) {
         if (ifx == 0 && alg == gd->alg && memcmp(bssid, sm->bssid, ETH_ALEN) == 0 &&
         		memcmp(_gtk, gtk_get, gd->gtk_len) == 0) {
-            wpa_printf(MSG_DEBUG, "GTK %d is already in use in entry %d, it may be an attack, ignor it.", gd->keyidx, gd->keyidx + 2);
-            return true;
-        }
-    }
-
-    if (wpa_sm_get_key(&ifx, &alg, bssid, &keyidx, gtk_get, gd->gtk_len, (gd->keyidx+1)%2) == 0) {
-    	if (ifx == 0 && alg == gd->alg && memcmp(bssid, sm->bssid, ETH_ALEN) == 0 &&
-    			memcmp(_gtk, gtk_get, gd->gtk_len) == 0) {
-            wpa_printf(MSG_DEBUG, "GTK %d is already in use in entry %d, it may be an attack, ignor it.", gd->keyidx, (gd->keyidx+1)%2 + 2);
+            wpa_printf(MSG_DEBUG, "GTK %d is already in use in entry, it may be an attack, ignore it.", gd->keyidx);
             return true;
         }
     }
@@ -1022,7 +1024,7 @@ int   ieee80211w_set_keys(struct wpa_sm *sm,
 		if (keyidx > 4095) {
 			return -1;
 		}
-		return esp_wifi_set_igtk_internal(ESP_IF_WIFI_STA, igtk);
+		return esp_wifi_set_igtk_internal(WIFI_IF_STA, igtk);
 	}
 	return 0;
 #else
@@ -1172,7 +1174,7 @@ int   ieee80211w_set_keys(struct wpa_sm *sm,
     
     os_bzero(null_rsc, WPA_KEY_RSC_LEN);
 
-    if (sm->proto == WPA_PROTO_RSN) {
+    if (sm->proto == WPA_PROTO_RSN && isptk) {
         key_rsc = null_rsc;
     } else {
         key_rsc = key->key_rsc;
@@ -1271,6 +1273,10 @@ int   ieee80211w_set_keys(struct wpa_sm *sm,
         goto failed;
     }
 
+    if (sm->key_install && sm->key_info & WPA_KEY_INFO_INSTALL && sm->use_ext_key_id) {
+        wpa_supplicant_install_ptk(sm, 0);
+    }
+
     /*after txover, callback will continue run remain task*/
     if (wpa_supplicant_send_4_of_4(sm, sm->bssid, key, ver, key_info,
                        NULL, 0, &sm->ptk)) {
@@ -1289,8 +1295,13 @@ failed:
        u16 key_info=sm->key_info;
 
     if (sm->key_install && key_info & WPA_KEY_INFO_INSTALL) {
-        if (wpa_supplicant_install_ptk(sm))
-            goto failed;
+        if (sm->use_ext_key_id) {
+            if (wpa_supplicant_install_ptk(sm, 2))
+                goto failed;
+        } else {
+            if (wpa_supplicant_install_ptk(sm, 1))
+                goto failed;
+        }
     }
     else if (sm->key_install == false) {
         wpa_printf(MSG_DEBUG, "PTK has been installed, it may be an attack, ignor it.");
@@ -1547,30 +1558,18 @@ failed:
     wpa_sm_set_seq(sm, key, 0);
     sm->key_info=key_info;
 
-    if (wpa_supplicant_send_2_of_2(sm, key, ver, key_info))
-        goto failed;
-
-    return;
-
-failed:
-    wpa_sm_deauthenticate(sm, WLAN_REASON_UNSPECIFIED);
-}
-
-  int   wpa_supplicant_send_2_of_2_txcallback(struct wpa_sm *sm)
-{
-    u16 key_info=sm->key_info;
-    u16 rekey= (WPA_SM_STATE(sm) == WPA_COMPLETED);
-
+    /*install gtk before send 2 of 2*/
     if((sm->gd).gtk_len) {
-    	if (wpa_supplicant_gtk_in_use(sm, &(sm->gd)) == false) {
-            if (wpa_supplicant_install_gtk(sm, &(sm->gd)))
-                goto failed;
-    	}
+        if (wpa_supplicant_install_gtk(sm, &(sm->gd)))
+            goto failed;
     } else {
         goto failed;
     }
 
-    if (rekey) {
+    if (wpa_supplicant_send_2_of_2(sm, key, ver, key_info))
+        goto failed;
+
+    if ((WPA_SM_STATE(sm) == WPA_COMPLETED)) {
 #ifdef MSG_PRINT    
         wpa_printf(MSG_DEBUG, "WPA: Group rekeying "
             "completed with " MACSTR " [GTK=%s]",
@@ -1578,13 +1577,15 @@ failed:
 #endif    
         wpa_sm_cancel_auth_timeout(sm);
         wpa_sm_set_state(WPA_COMPLETED);
-    } else 
+    } else {
         wpa_supplicant_key_neg_complete(sm, sm->bssid,
-                        key_info &WPA_KEY_INFO_SECURE);
-    return 0;
+                        sm->key_info &WPA_KEY_INFO_SECURE);
+    }
+
+    return;
 
 failed:
-    return WLAN_REASON_UNSPECIFIED;
+    wpa_sm_deauthenticate(sm, WLAN_REASON_UNSPECIFIED);
 }
 
    int   wpa_supplicant_verify_eapol_key_mic(struct wpa_sm *sm,
@@ -1776,6 +1777,9 @@ int   wpa_sm_rx_eapol(u8 *src_addr, u8 *buf, u32 len)
     u16 key_info, ver;
     u8 *tmp;
     int ret = -1;
+    size_t mic_len;
+
+    mic_len = wpa_mic_len(sm->key_mgmt);
 
     if (len < sizeof(*hdr) + sizeof(*key)) {       
 #ifdef DEBUG_PRINT    
@@ -1932,7 +1936,18 @@ int   wpa_sm_rx_eapol(u8 *src_addr, u8 *buf, u32 len)
     extra_len = WPA_GET_BE16(key->key_data_length);
 
     if (sm->proto == WPA_PROTO_RSN &&
-        (key_info & WPA_KEY_INFO_ENCR_KEY_DATA)) {
+        (key_info & WPA_KEY_INFO_ENCR_KEY_DATA) && mic_len) {
+        /*
+         * Only decrypt the Key Data field if the frame's authenticity
+         * was verified. When using AES-SIV (FILS), the MIC flag is not
+         * set, so this check should only be performed if mic_len != 0
+         * which is the case in this code branch.
+         */
+        if (!(key_info & WPA_KEY_INFO_MIC)) {
+            wpa_printf(MSG_WARNING,
+                    "WPA: Ignore EAPOL-Key with encrypted but unauthenticated data");
+            goto out;
+        }
         if (wpa_supplicant_decrypt_key_data(sm, key, ver))
             goto out;
         extra_len = WPA_GET_BE16(key->key_data_length);
@@ -2129,7 +2144,14 @@ int wpa_set_bss(char *macddr, char * bssid, u8 pairwise_cipher, u8 group_cipher,
 {
     int res = 0;
     struct wpa_sm *sm = &gWpaSm;
+    bool use_pmk_cache = !esp_wifi_skip_supp_pmkcaching();
     
+    /* Incase AP has changed it's SSID, don't try with PMK caching for SAE connection */
+    if ((sm->key_mgmt == WPA_KEY_MGMT_SAE) &&
+        (os_memcmp(sm->bssid, bssid, ETH_ALEN) == 0) &&
+        (os_memcmp(sm->ssid, ssid, ssid_len) != 0)) {
+        use_pmk_cache = false;
+    }
     sm->pairwise_cipher = BIT(pairwise_cipher);
     sm->group_cipher = BIT(group_cipher);
     sm->rx_replay_counter_set = 0;  //init state not intall replay counter value
@@ -2139,21 +2161,21 @@ int wpa_set_bss(char *macddr, char * bssid, u8 pairwise_cipher, u8 group_cipher,
     memcpy(sm->own_addr, macddr, ETH_ALEN);
     memcpy(sm->bssid, bssid, ETH_ALEN);
     sm->ap_notify_completed_rsne = esp_wifi_sta_is_ap_notify_completed_rsne_internal();
+    sm->use_ext_key_id = (sm->proto == WPA_PROTO_WPA);
 
-    if (sm->key_mgmt == WPA_KEY_MGMT_SAE ||
-	    is_wpa2_enterprise_connection()) {
-        if (!esp_wifi_skip_supp_pmkcaching()) {
-            pmksa_cache_set_current(sm, NULL, (const u8*) bssid, 0, 0);
-            wpa_sm_set_pmk_from_pmksa(sm);
-        } else {
-            struct rsn_pmksa_cache_entry *entry = NULL;
-
-            if (sm->pmksa) {
-                entry = pmksa_cache_get(sm->pmksa, (const u8 *)bssid, NULL, NULL);
-            }
-            if (entry) {
-                pmksa_cache_flush(sm->pmksa, NULL, entry->pmk, entry->pmk_len);
-            }
+    struct rsn_pmksa_cache_entry *pmksa = NULL;
+    if (use_pmk_cache) {
+        pmksa = pmksa_cache_get(sm->pmksa, (const u8 *)bssid, NULL, NULL);
+        if (pmksa && (pmksa->akmp != sm->key_mgmt)) {
+            use_pmk_cache = false;
+        }
+    }
+    if (wpa_key_mgmt_supports_caching(sm->key_mgmt) && use_pmk_cache) {
+        pmksa_cache_set_current(sm, NULL, (const u8*) bssid, 0, 0);
+        wpa_sm_set_pmk_from_pmksa(sm);
+    } else {
+        if (pmksa) {
+            pmksa_cache_flush(sm->pmksa, NULL, pmksa->pmk, pmksa->pmk_len);
         }
     }
 
@@ -2162,7 +2184,7 @@ int wpa_set_bss(char *macddr, char * bssid, u8 pairwise_cipher, u8 group_cipher,
     if (esp_wifi_sta_pmf_enabled()) {
         wifi_config_t wifi_cfg;
 
-        esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg);
+        esp_wifi_get_config(WIFI_IF_STA, &wifi_cfg);
         sm->pmf_cfg = wifi_cfg.sta.pmf_cfg;
         sm->mgmt_group_cipher = cipher_type_map_public_to_supp(esp_wifi_sta_get_mgmt_group_cipher());
     } else {
@@ -2175,6 +2197,9 @@ int wpa_set_bss(char *macddr, char * bssid, u8 pairwise_cipher, u8 group_cipher,
     if (res < 0) 
         return -1;
     sm->assoc_wpa_ie_len = res;
+    os_memset(sm->ssid, 0, sizeof(sm->ssid));
+    os_memcpy(sm->ssid, ssid, ssid_len);
+    sm->ssid_len = ssid_len;
     wpa_set_passphrase(passphrase, ssid, ssid_len);
     return 0;
 }
@@ -2201,7 +2226,9 @@ wpa_set_passphrase(char * passphrase, u8 *ssid, size_t ssid_len)
     if (esp_wifi_sta_get_reset_param_internal() != 0) {
         // check it's psk
         if (strlen((char *)esp_wifi_sta_get_prof_password_internal()) == 64) {
-            hexstr2bin((char *)esp_wifi_sta_get_prof_password_internal(), esp_wifi_sta_get_ap_info_prof_pmk_internal(), PMK_LEN);
+            if (hexstr2bin((char *)esp_wifi_sta_get_prof_password_internal(), esp_wifi_sta_get_ap_info_prof_pmk_internal(), PMK_LEN) != 0) {
+                return;
+            }
         } else {
         pbkdf2_sha1((char *)esp_wifi_sta_get_prof_password_internal(), (char *)sta_ssid->ssid, (size_t)sta_ssid->len,
             4096, esp_wifi_sta_get_ap_info_prof_pmk_internal(), PMK_LEN);
@@ -2244,9 +2271,9 @@ wpa_sm_set_key(struct install_key *key_sm, enum wpa_alg alg,
     struct wpa_sm *sm = &gWpaSm;
 
     /*gtk or ptk both need check countermeasures*/
-    if (alg == WPA_ALG_TKIP && key_len == 32) {
+    if (alg == WPA_ALG_TKIP && key_idx == 0 && key_len == 32) {
         /* Clear the MIC error counter when setting a new PTK. */
-        key_sm->mic_errors_seen = 0;
+        sm->mic_errors_seen = 0;
     }
 
     key_sm->keys_cleared = 0;
@@ -2269,9 +2296,8 @@ wpa_sm_get_key(uint8_t *ifx, int *alg, u8 *addr, int *key_idx, u8 *key, size_t k
 
 void wpa_supplicant_clr_countermeasures(u16 *pisunicast)
 {
-       struct wpa_sm *sm = &gWpaSm;
-       (sm->install_ptk).mic_errors_seen=0;
-    (sm->install_gtk).mic_errors_seen=0;
+    struct wpa_sm *sm = &gWpaSm;
+    sm->mic_errors_seen = 0;
     ets_timer_done(&(sm->cm_timer));
     wpa_printf(MSG_DEBUG, "WPA: TKIP countermeasures clean\n");
 }
@@ -2281,9 +2307,9 @@ void wpa_supplicant_clr_countermeasures(u16 *pisunicast)
 */
 void wpa_supplicant_stop_countermeasures(u16 *pisunicast)
 {
-       struct wpa_sm *sm = &gWpaSm;
+    struct wpa_sm *sm = &gWpaSm;
 
-       ets_timer_done(&(sm->cm_timer));
+    ets_timer_done(&(sm->cm_timer));
     if (sm->countermeasures) {
         sm->countermeasures = 0;
               wpa_supplicant_clr_countermeasures(NULL);
@@ -2296,22 +2322,20 @@ void wpa_supplicant_stop_countermeasures(u16 *pisunicast)
 
 int wpa_michael_mic_failure(u16 isunicast)
 {
-       struct wpa_sm *sm = &gWpaSm;
-       int32_t *pmic_errors_seen=(isunicast)? &((sm->install_ptk).mic_errors_seen) : &((sm->install_gtk).mic_errors_seen);
+    struct wpa_sm *sm = &gWpaSm;
     
     wpa_printf(MSG_DEBUG, "\nTKIP MIC failure occur\n");
     
-       /*both unicast and multicast mic_errors_seen need statistics*/
-    if ((sm->install_ptk).mic_errors_seen + (sm->install_gtk).mic_errors_seen) {
+    if (sm->mic_errors_seen) {
         /* Send the new MIC error report immediately since we are going
          * to start countermeasures and AP better do the same.
          */
         wpa_sm_set_state(WPA_TKIP_COUNTERMEASURES);
-        wpa_sm_key_request(sm, 1, 0);
+        wpa_sm_key_request(sm, 1, isunicast);
 
         /* initialize countermeasures */
         sm->countermeasures = 1;
-        wpa_printf(MSG_DEBUG, "TKIP countermeasures started\n");
+        wpa_printf(MSG_DEBUG, "TKIP countermeasures started");
 
         /*
          * Need to wait for completion of request frame. We do not get
@@ -2330,9 +2354,9 @@ int wpa_michael_mic_failure(u16 isunicast)
         /* TODO: mark the AP rejected for 60 second. STA is
          * allowed to associate with another AP.. */
     } else {
-        *pmic_errors_seen=(*pmic_errors_seen)+1;
+        sm->mic_errors_seen++;
         wpa_sm_set_state(WPA_MIC_FAILURE);
-        wpa_sm_key_request(sm, 1, 0);
+        wpa_sm_key_request(sm, 1, isunicast);
         /*start 60sec counter to monitor whether next mic_failure occur in this period, or clear mic_errors_seen*/
         ets_timer_disarm(&(sm->cm_timer));
         ets_timer_done(&(sm->cm_timer));
@@ -2370,7 +2394,6 @@ void eapol_txcb(void *eb)
         case WPA_GROUP_HANDSHAKE:
             if (sm->txcb_flags & WPA_GROUP_HANDSHAKE_BIT) {
                 sm->txcb_flags &= ~WPA_GROUP_HANDSHAKE_BIT;
-                isdeauth = wpa_supplicant_send_2_of_2_txcallback(sm);
             } else {
                 wpa_printf(MSG_DEBUG, "2/2 txcb, flags=%d\n", sm->txcb_flags);
             }

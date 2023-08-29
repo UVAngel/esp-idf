@@ -87,7 +87,7 @@ typedef struct {
     int sclk_io_num;                ///< GPIO pin for Spi CLocK signal, or -1 if not used.
     int quadwp_io_num;              ///< GPIO pin for WP (Write Protect) signal which is used as D2 in 4-bit communication modes, or -1 if not used.
     int quadhd_io_num;              ///< GPIO pin for HD (HolD) signal which is used as D3 in 4-bit communication modes, or -1 if not used.
-    int max_transfer_sz;            ///< Maximum transfer size, in bytes. Defaults to 4094 if 0.
+    int max_transfer_sz;            ///< Maximum transfer size, in bytes. Defaults to 4092 if 0 when DMA enabled, or to `SOC_SPI_MAXIMUM_BUFFER_SIZE` if DMA is disabled.
     uint32_t flags;                 ///< Abilities of bus to be checked by the driver. Or-ed value of ``SPICOMMON_BUSFLAG_*`` flags.
     int intr_flags;    /**< Interrupt flag for the bus to set the priority, and IRAM attribute, see
                          *  ``esp_intr_alloc.h``. Note that the EDGE, INTRDISABLED attribute are ignored
@@ -133,7 +133,7 @@ esp_err_t spi_bus_initialize(spi_host_device_t host_id, const spi_bus_config_t *
  * @param host_id SPI peripheral to free
  * @return
  *         - ESP_ERR_INVALID_ARG   if parameter is invalid
- *         - ESP_ERR_INVALID_STATE if not all devices on the bus are freed
+ *         - ESP_ERR_INVALID_STATE if bus hasn't been initialized before, or not all devices on the bus are freed
  *         - ESP_OK                on success
  */
 esp_err_t spi_bus_free(spi_host_device_t host_id);

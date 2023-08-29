@@ -668,6 +668,27 @@ void bta_dm_set_dev_name (tBTA_DM_MSG *p_data)
 
 /*******************************************************************************
 **
+** Function         bta_dm_get_dev_name
+**
+** Description      Gets local device name
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+void bta_dm_get_dev_name (tBTA_DM_MSG *p_data)
+{
+    tBTM_STATUS status;
+    char *name = NULL;
+
+    status = BTM_ReadLocalDeviceName(&name);
+    if (p_data->get_name.p_cback) {
+        (*p_data->get_name.p_cback)(status, name);
+    }
+}
+
+/*******************************************************************************
+**
 ** Function         bta_dm_set_afh_channels
 **
 ** Description      Sets AFH channels
@@ -816,8 +837,15 @@ void bta_dm_ble_set_channels (tBTA_DM_MSG *p_data)
 void bta_dm_update_white_list(tBTA_DM_MSG *p_data)
 {
 #if (BLE_INCLUDED == TRUE)
-    BTM_BleUpdateAdvWhitelist(p_data->white_list.add_remove, p_data->white_list.remote_addr, p_data->white_list.addr_type, p_data->white_list.add_wl_cb);
+    BTM_BleUpdateAdvWhitelist(p_data->white_list.add_remove, p_data->white_list.remote_addr, p_data->white_list.addr_type, p_data->white_list.update_wl_cb);
 #endif  ///BLE_INCLUDED == TRUE
+}
+
+void bta_dm_clear_white_list(tBTA_DM_MSG *p_data)
+{
+#if (BLE_INCLUDED == TRUE)
+    BTM_BleClearWhitelist(p_data->white_list.update_wl_cb);
+#endif
 }
 
 void bta_dm_ble_read_adv_tx_power(tBTA_DM_MSG *p_data)
@@ -3822,7 +3850,10 @@ static void bta_dm_adjust_roles(BOOLEAN delay_role_switch)
                     } else {
                         bta_dm_cb.switch_delay_timer[i].p_cback =
                             (TIMER_CBACK *)&bta_dm_delay_role_switch_cback;
-                        bta_sys_start_timer(&bta_dm_cb.switch_delay_timer[i], 0, 500);
+                        /* Start the timer if not active */
+                        if (!bta_sys_timer_is_active(&bta_dm_cb.switch_delay_timer[i])) {
+                            bta_sys_start_timer(&bta_dm_cb.switch_delay_timer[i], 0, 500);
+                        }
                     }
                 }
 
@@ -4959,9 +4990,6 @@ void bta_dm_ble_update_conn_params (tBTA_DM_MSG *p_data)
                                   p_data->ble_update_conn_params.latency,
                                   p_data->ble_update_conn_params.timeout)) {
         APPL_TRACE_ERROR("Update connection parameters failed!");
-    } else {
-        BTM_BleConfigConnParams(p_data->ble_update_conn_params.min_int, p_data->ble_update_conn_params.max_int,
-            p_data->ble_update_conn_params.latency, p_data->ble_update_conn_params.timeout);
     }
 }
 /*******************************************************************************
@@ -4975,7 +5003,7 @@ void bta_dm_ble_update_conn_params (tBTA_DM_MSG *p_data)
 *******************************************************************************/
 void bta_dm_ble_disconnect (tBTA_DM_MSG *p_data)
 {
-    L2CA_RemoveFixedChnl(L2CAP_ATT_CID, p_data->ble_disconnect.remote_bda);
+    L2CA_BleDisconnect(p_data->ble_disconnect.remote_bda);
 }
 
 /*******************************************************************************
@@ -5338,19 +5366,41 @@ void bta_dm_ble_set_scan_rsp_raw (tBTA_DM_MSG *p_data)
 *******************************************************************************/
 void bta_dm_ble_set_data_length(tBTA_DM_MSG *p_data)
 {
+    UINT8 status = BTM_SUCCESS;
     tACL_CONN *p_acl_cb = btm_bda_to_acl(p_data->ble_set_data_length.remote_bda, BT_TRANSPORT_LE);
     if (p_acl_cb == NULL) {
         APPL_TRACE_ERROR("%s error: Invalid connection remote_bda.", __func__);
         return;
-    } else {
-        p_acl_cb->p_set_pkt_data_cback = p_data->ble_set_data_length.p_set_pkt_data_cback;
     }
-    UINT8 status = BTM_SetBleDataLength(p_data->ble_set_data_length.remote_bda,
+
+    p_acl_cb->p_set_pkt_data_cback = p_data->ble_set_data_length.p_set_pkt_data_cback;
+    // if the value of the data length is same, triger callback directly
+    if(p_data->ble_set_data_length.tx_data_length == p_acl_cb->data_length_params.tx_len) {
+        if(p_data->ble_set_data_length.p_set_pkt_data_cback) {
+            (*p_data->ble_set_data_length.p_set_pkt_data_cback)(status, &p_acl_cb->data_length_params);
+        }
+        return;
+    }
+
+    if(p_acl_cb->data_len_updating) {
+        // aleady have one cmd
+        if(p_acl_cb->data_len_waiting) {
+            status = BTM_ILLEGAL_ACTION;
+        } else {
+            // save the command
+            p_acl_cb->p_set_data_len_cback_waiting = p_data->ble_set_data_length.p_set_pkt_data_cback;
+            p_acl_cb->tx_len_waiting = p_data->ble_set_data_length.tx_data_length;
+            p_acl_cb->data_len_waiting = true;
+            return;
+        }
+    } else {
+        status = BTM_SetBleDataLength(p_data->ble_set_data_length.remote_bda,
                                         p_data->ble_set_data_length.tx_data_length);
+    }
     if (status != BTM_SUCCESS) {
         APPL_TRACE_ERROR("%s failed\n", __FUNCTION__);
     }
-    if (p_data->ble_set_data_length.p_set_pkt_data_cback) {
+    if (p_data->ble_set_data_length.p_set_pkt_data_cback && status != BTM_SUCCESS) {
         if (p_acl_cb->data_length_params.tx_len == 0){
             uint16_t length = controller_get_interface()->get_acl_data_size_ble();
             p_acl_cb->data_length_params.rx_len = length;

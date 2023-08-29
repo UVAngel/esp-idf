@@ -74,6 +74,7 @@
 
 #define START_PAYLOAD_MAX      20
 #define CONT_PAYLOAD_MAX       23
+#define START_LAST_SEG_MAX     2
 
 #define START_LAST_SEG(gpc)    (gpc >> 2)
 #define CONT_SEG_INDEX(gpc)    (gpc >> 2)
@@ -310,8 +311,8 @@ static void reset_adv_link(void)
 
 #if defined(CONFIG_BLE_MESH_USE_DUPLICATE_SCAN)
     /* Remove the link id from exceptional list */
-    bt_mesh_update_exceptional_list(BLE_MESH_EXCEP_LIST_REMOVE,
-                                    BLE_MESH_EXCEP_INFO_MESH_LINK_ID, &link.id);
+    bt_mesh_update_exceptional_list(BLE_MESH_EXCEP_LIST_SUB_CODE_REMOVE,
+                                    BLE_MESH_EXCEP_LIST_TYPE_MESH_LINK_ID, &link.id);
 #endif
 
     reset_state();
@@ -751,7 +752,18 @@ static int prov_auth(uint8_t method, uint8_t action, uint8_t size)
             uint32_t num = 0U;
 
             bt_mesh_rand(&num, sizeof(num));
-            num %= div[size - 1];
+
+            if (output == BLE_MESH_BLINK ||
+                output == BLE_MESH_BEEP ||
+                output == BLE_MESH_VIBRATE) {
+                /** NOTE: According to the Bluetooth Mesh Profile Specification
+                 *  Section 5.4.2.4, blink, beep and vibrate should be a random
+                 *  integer between 0 and 10^size.
+                 */
+                num = (num % (div[size - 1] - 1)) + 1;
+            } else {
+                num %= div[size - 1];
+            }
 
             sys_put_be32(num, &link.auth[12]);
             (void)memset(link.auth, 0, 12);
@@ -829,6 +841,7 @@ static void prov_start(const uint8_t *data)
 
 static void send_confirm(void)
 {
+    uint8_t *local_conf = NULL;
     PROV_BUF(cfm, 17);
 
     BT_DBG("ConfInputs[0]   %s", bt_hex(link.conf_inputs, 64));
@@ -861,10 +874,18 @@ static void send_confirm(void)
 
     prov_buf_init(&cfm, PROV_CONFIRM);
 
+    local_conf = net_buf_simple_add(&cfm, 16);
+
     if (bt_mesh_prov_conf(link.conf_key, link.rand, link.auth,
-                          net_buf_simple_add(&cfm, 16))) {
+                          local_conf)) {
         BT_ERR("Unable to generate confirmation value");
         prov_send_fail_msg(PROV_ERR_UNEXP_ERR);
+        return;
+    }
+
+    if (!memcmp(link.conf, local_conf, 16)) {
+        BT_ERR("Confirmation value is identical to ours, rejecting.");
+        prov_send_fail_msg(PROV_ERR_NVAL_FMT);
         return;
     }
 
@@ -1359,8 +1380,8 @@ static void link_open(struct prov_rx *rx, struct net_buf_simple *buf)
 
 #if defined(CONFIG_BLE_MESH_USE_DUPLICATE_SCAN)
     /* Add the link id into exceptional list */
-    bt_mesh_update_exceptional_list(BLE_MESH_EXCEP_LIST_ADD,
-                                    BLE_MESH_EXCEP_INFO_MESH_LINK_ID, &link.id);
+    bt_mesh_update_exceptional_list(BLE_MESH_EXCEP_LIST_SUB_CODE_ADD,
+                                    BLE_MESH_EXCEP_LIST_TYPE_MESH_LINK_ID, &link.id);
 #endif
 
     bearer_ctl_send(LINK_ACK, NULL, 0);
@@ -1429,15 +1450,19 @@ static void prov_msg_recv(void)
         return;
     }
 
-    if (type != PROV_FAILED && type != link.expect) {
-        BT_WARN("Unexpected msg 0x%02x != 0x%02x", type, link.expect);
-        prov_send_fail_msg(PROV_ERR_UNEXP_PDU);
-        return;
-    }
-
+    /* For case MESH/NODE/PROV/BI-15-C, when the node receive a Provisioning PDU
+     * with the Type field set to the lowest unsupported or RFU value, it sends a
+     * Provisioning Failed PDU with the Error Code field set to Invalid PDU(0x01).
+     */
     if (type >= ARRAY_SIZE(prov_handlers)) {
         BT_ERR("Unknown provisioning PDU type 0x%02x", type);
         prov_send_fail_msg(PROV_ERR_NVAL_PDU);
+        return;
+    }
+
+    if (type != PROV_FAILED && type != link.expect) {
+        BT_WARN("Unexpected msg 0x%02x != 0x%02x", type, link.expect);
+        prov_send_fail_msg(PROV_ERR_UNEXP_PDU);
         return;
     }
 
@@ -1543,6 +1568,12 @@ static void gen_prov_start(struct prov_rx *rx, struct net_buf_simple *buf)
         return;
     }
 
+    if (START_LAST_SEG(rx->gpc) > START_LAST_SEG_MAX) {
+        BT_ERR("Invalid SegN 0x%02x", START_LAST_SEG(rx->gpc));
+        prov_send_fail_msg(PROV_ERR_UNEXP_ERR);
+        return;
+    }
+
     if (link.rx.buf->len > link.rx.buf->size) {
         BT_ERR("Too large provisioning PDU (%u bytes)",
                 link.rx.buf->len);
@@ -1639,15 +1670,30 @@ int bt_mesh_pb_gatt_recv(struct bt_mesh_conn *conn, struct net_buf_simple *buf)
         return -EINVAL;
     }
 
-    type = net_buf_simple_pull_u8(buf);
-    if (type != PROV_FAILED && type != link.expect) {
-        BT_WARN("Unexpected msg 0x%02x != 0x%02x", type, link.expect);
+    /* For case MESH/NODE/PROV/BI-03-C, if the link is closed, when the node receive
+     * a Provisioning PDU , it will send a Provisioning Failed PDU with the Error Code
+     * field set to Unexpected PDU(0x03).
+     */
+    if (bt_mesh_atomic_test_bit(link.flags, LINK_INVALID)) {
+        BT_WARN("Unexpected msg 0x%02x on invalid link", type);
         prov_send_fail_msg(PROV_ERR_UNEXP_PDU);
         return -EINVAL;
     }
 
+    /* For case MESH/NODE/PROV/BI-15-C, when the node receive a Provisioning PDU
+     * with the Type field set to the lowest unsupported or RFU value, it sends a
+     * Provisioning Failed PDU with the Error Code field set to Invalid PDU(0x01).
+     */
+    type = net_buf_simple_pull_u8(buf);
     if (type >= ARRAY_SIZE(prov_handlers)) {
         BT_ERR("Unknown provisioning PDU type 0x%02x", type);
+        prov_send_fail_msg(PROV_ERR_NVAL_PDU);
+        return -EINVAL;
+    }
+
+    if (type != PROV_FAILED && type != link.expect) {
+        BT_WARN("Unexpected msg 0x%02x != 0x%02x", type, link.expect);
+        prov_send_fail_msg(PROV_ERR_UNEXP_PDU);
         return -EINVAL;
     }
 
@@ -1791,8 +1837,8 @@ int bt_mesh_prov_deinit(void)
     k_delayed_work_free(&link.tx.retransmit);
 #if defined(CONFIG_BLE_MESH_USE_DUPLICATE_SCAN)
     /* Remove the link id from exceptional list */
-    bt_mesh_update_exceptional_list(BLE_MESH_EXCEP_LIST_REMOVE,
-                                    BLE_MESH_EXCEP_INFO_MESH_LINK_ID, &link.id);
+    bt_mesh_update_exceptional_list(BLE_MESH_EXCEP_LIST_SUB_CODE_REMOVE,
+                                    BLE_MESH_EXCEP_LIST_TYPE_MESH_LINK_ID, &link.id);
 #endif /* CONFIG_BLE_MESH_USE_DUPLICATE_SCAN */
 #endif /* CONFIG_BLE_MESH_PB_ADV */
 

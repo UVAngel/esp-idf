@@ -51,7 +51,6 @@ tBTE_APPL_CFG bte_appl_cfg = {
     BTM_BLE_MIN_KEY_SIZE,
     BTM_BLE_ONLY_ACCEPT_SPECIFIED_SEC_AUTH_DISABLE,
     BTM_BLE_OOB_DISABLE,
-    BTM_BLE_APPL_ENC_KEY_SIZE,
 };
 #endif
 
@@ -233,8 +232,8 @@ void bta_dm_co_loc_oob(BOOLEAN valid, BT_OCTET16 c, BT_OCTET16 r)
 *******************************************************************************/
 void bta_dm_co_rmt_oob(BD_ADDR bd_addr)
 {
-    BT_OCTET16 p_c;
-    BT_OCTET16 p_r;
+    BT_OCTET16 p_c = {0};
+    BT_OCTET16 p_r = {0};
     BOOLEAN result = FALSE;
 
 #ifdef BTIF_DM_OOB_TEST
@@ -394,7 +393,7 @@ void bta_dm_co_ble_set_init_key_req(UINT8 init_key)
 {
 #if (SMP_INCLUDED == TRUE)
    init_key &= 0x0f;  // 4~7bit reservd, only used the 0~3bit
-   bte_appl_cfg.ble_init_key &= init_key;
+   bte_appl_cfg.ble_init_key = init_key;
 #endif  ///SMP_INCLUDED == TRUE
 }
 
@@ -402,7 +401,7 @@ void bta_dm_co_ble_set_rsp_key_req(UINT8 rsp_key)
 {
 #if (SMP_INCLUDED == TRUE)
    rsp_key &= 0x0f;  // 4~7bit reservd, only used the 0~3bit
-   bte_appl_cfg.ble_resp_key &= rsp_key;
+   bte_appl_cfg.ble_resp_key = rsp_key;
 #endif  ///SMP_INCLUDED == TRUE
 }
 
@@ -422,17 +421,6 @@ void bta_dm_co_ble_set_min_key_size(UINT8 ble_key_size)
 #if (SMP_INCLUDED == TRUE)
     if(ble_key_size >= BTM_BLE_MIN_KEY_SIZE && ble_key_size <= bte_appl_cfg.ble_max_key_size) {
         bte_appl_cfg.ble_min_key_size = ble_key_size;
-    } else {
-        APPL_TRACE_ERROR("%s error:Invalid key size value, key_size =%d",__func__, ble_key_size);
-    }
-#endif  ///SMP_INCLUDED == TRUE
-}
-
-void bta_dm_co_ble_set_appl_enc_key_size(UINT8 ble_key_size)
-{
-#if (SMP_INCLUDED == TRUE)
-    if(ble_key_size >= bte_appl_cfg.ble_min_key_size && ble_key_size <= bte_appl_cfg.ble_max_key_size) {
-        bte_appl_cfg.ble_appl_enc_key_size = ble_key_size;
     } else {
         APPL_TRACE_ERROR("%s error:Invalid key size value, key_size =%d",__func__, ble_key_size);
     }

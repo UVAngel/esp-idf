@@ -126,6 +126,11 @@ UINT8           active_remote_addr_type;         /* local device address type fo
 BD_FEATURES     peer_le_features;       /* Peer LE Used features mask for the device */
 tBTM_SET_PKT_DATA_LENGTH_CBACK *p_set_pkt_data_cback;
 tBTM_LE_SET_PKT_DATA_LENGTH_PARAMS data_length_params;
+BOOLEAN   data_len_updating;
+// data len update cmd cache
+BOOLEAN   data_len_waiting;
+tBTM_SET_PKT_DATA_LENGTH_CBACK *p_set_data_len_cback_waiting;
+UINT16 tx_len_waiting;
 #endif
 
 } tACL_CONN;
@@ -1042,6 +1047,7 @@ void btm_sco_process_num_completed_pkts (UINT8 *p);
 #define btm_sco_chk_pend_unpark(hci_status, hci_handle)
 #endif /* BTM_SCO_INCLUDED */
 void btm_qos_setup_complete (UINT8 status, UINT16 handle, FLOW_SPEC *p_flow);
+void btm_qos_setup_timeout (void *p_tle);
 
 
 /* Internal functions provided by btm_sco.c

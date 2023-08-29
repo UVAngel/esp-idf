@@ -111,6 +111,16 @@ typedef struct psk_key_hint {
 } psk_hint_key_t;
 
 /**
+ *  @brief Keep alive parameters structure
+ */
+typedef struct tls_keep_alive_cfg {
+    bool keep_alive_enable;               /*!< Enable keep-alive timeout */
+    int keep_alive_idle;                  /*!< Keep-alive idle time (second) */
+    int keep_alive_interval;              /*!< Keep-alive interval time (second) */
+    int keep_alive_count;                 /*!< Keep-alive packet retry send count */
+} tls_keep_alive_cfg_t;
+
+/**
  * @brief      ESP-TLS configuration parameters
  *
  * @note       Note about format of certificates:
@@ -204,7 +214,7 @@ typedef struct esp_tls_cfg {
     esp_err_t (*crt_bundle_attach)(void *conf);
                                             /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification
                                                  bundle for server verification, must be enabled in menuconfig */
-
+    tls_keep_alive_cfg_t *keep_alive_cfg;   /*!< Enable TCP keep-alive timeout for SSL connection */
 } esp_tls_cfg_t;
 
 #ifdef CONFIG_ESP_TLS_SERVER
@@ -441,6 +451,10 @@ int esp_tls_conn_http_new_async(const char *url, const esp_tls_cfg_t *cfg, esp_t
  *                   of bytes actually written to the TLS/SSL connection.
  *             - <0  if write operation was not successful, because either an
  *                   error occured or an action must be taken by the calling process.
+ *             - ESP_TLS_ERR_SSL_WANT_READ/
+ *               ESP_TLS_ERR_SSL_WANT_WRITE.
+ *                  if the handshake is incomplete and waiting for data to be available for reading.
+ *                  In this case this functions needs to be called again when the underlying transport is ready for operation.
  */
 static inline ssize_t esp_tls_conn_write(esp_tls_t *tls, const void *data, size_t datalen)
 {

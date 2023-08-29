@@ -14,7 +14,7 @@
 
 #include <strings.h>
 
-#include "bootloader_flash.h"
+#include "bootloader_flash_priv.h"
 #include "bootloader_random.h"
 #include "bootloader_utility.h"
 #include "esp_image_format.h"
@@ -211,6 +211,12 @@ static esp_err_t initialise_flash_encryption(void)
     esp_efuse_write_field_bit(ESP_EFUSE_DIS_BOOT_REMAP);
     esp_efuse_write_field_bit(ESP_EFUSE_DIS_LEGACY_SPI_BOOT);
 
+#if defined(CONFIG_SECURE_BOOT_V2_ENABLED) && !defined(CONFIG_SECURE_BOOT_V2_ALLOW_EFUSE_RD_DIS)
+    // This bit is set when enabling Secure Boot V2, but we can't enable it until this later point in the first boot
+    // otherwise the Flash Encryption key cannot be read protected
+    esp_efuse_write_field_bit(ESP_EFUSE_WR_DIS_RD_DIS);
+#endif
+
     esp_err_t err = esp_efuse_batch_write_commit();
 
     return err;
@@ -286,9 +292,7 @@ static esp_err_t encrypt_bootloader(void)
         ESP_LOGD(TAG, "bootloader is plaintext. Encrypting...");
 
 #if CONFIG_SECURE_BOOT_V2_ENABLED
-        // Account for the signature sector after the bootloader
-        image_length = (image_length + FLASH_SECTOR_SIZE - 1) & ~(FLASH_SECTOR_SIZE - 1);
-        image_length += FLASH_SECTOR_SIZE;
+        /* The image length obtained from esp_image_verify_bootloader includes the sector boundary padding and the signature block lengths */
         if (ESP_BOOTLOADER_OFFSET + image_length > ESP_PARTITION_TABLE_OFFSET) {
             ESP_LOGE(TAG, "Bootloader is too large to fit Secure Boot V2 signature sector and partition table (configured offset 0x%x)", ESP_PARTITION_TABLE_OFFSET);
             return ESP_ERR_INVALID_SIZE;
@@ -299,8 +303,8 @@ static esp_err_t encrypt_bootloader(void)
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to encrypt bootloader in place: 0x%x", err);
             return err;
-        } 
-        
+        }
+
         ESP_LOGI(TAG, "bootloader encrypted successfully");
         return err;
     }

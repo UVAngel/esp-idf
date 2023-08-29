@@ -222,7 +222,7 @@ function(__component_get_requirements)
     endif()
 
     idf_build_get_property(idf_component_manager IDF_COMPONENT_MANAGER)
-    if(idf_component_manager AND idf_component_manager EQUAL "1")
+    if(idf_component_manager EQUAL 1)
         # Call for component manager once again to inject dependencies
         idf_build_get_property(python PYTHON)
         execute_process(COMMAND ${python}
@@ -428,9 +428,8 @@ function(idf_component_register)
     __component_check_target()
     __component_add_sources(sources)
 
-    # Add component manifest and lock files to list of dependencies
+    # Add component manifest to the list of dependencies
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${COMPONENT_DIR}/idf_component.yml")
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${COMPONENT_DIR}/dependencies.lock")
 
     # Create the final target for the component. This target is the target that is
     # visible outside the build system.

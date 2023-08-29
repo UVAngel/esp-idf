@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20200622
+#define ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL  0x20221207
 
 /**
  * @brief Bluetooth mode for controller enable/disable
@@ -103,6 +103,12 @@ the adv packet will be discarded until the memory is restored. */
     #define MESH_DUPLICATE_SCAN_CACHE_SIZE          0
 #endif
 
+#ifdef CONFIG_BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
+#define SCAN_DUPL_CACHE_REFRESH_PERIOD CONFIG_BTDM_SCAN_DUPL_CACHE_REFRESH_PERIOD
+#else
+#define SCAN_DUPL_CACHE_REFRESH_PERIOD              0
+#endif
+
 #if defined(CONFIG_BTDM_CTRL_MODE_BLE_ONLY)
 #define BTDM_CONTROLLER_MODE_EFF                    ESP_BT_MODE_BLE
 #elif defined(CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY)
@@ -116,6 +122,8 @@ the adv packet will be discarded until the memory is restored. */
 #else
 #define BTDM_CTRL_AUTO_LATENCY_EFF false
 #endif
+
+#define BTDM_CTRL_HLI false
 
 #ifdef CONFIG_BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF
 #define BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF CONFIG_BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF
@@ -151,11 +159,13 @@ the adv packet will be discarded until the memory is restored. */
     .ble_sca = CONFIG_BTDM_BLE_SLEEP_CLOCK_ACCURACY_INDEX_EFF,             \
     .pcm_role = CONFIG_BTDM_CTRL_PCM_ROLE_EFF,                             \
     .pcm_polar = CONFIG_BTDM_CTRL_PCM_POLAR_EFF,                           \
+    .hli = BTDM_CTRL_HLI,                                                  \
+    .dup_list_refresh_period = SCAN_DUPL_CACHE_REFRESH_PERIOD,             \
     .magic = ESP_BT_CONTROLLER_CONFIG_MAGIC_VAL,                           \
-};
+}
 
 #else
-#define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {0}; _Static_assert(0, "please enable bluetooth in menuconfig to use bt.h");
+#define BT_CONTROLLER_INIT_CONFIG_DEFAULT() {0}; _Static_assert(0, "please enable bluetooth in menuconfig to use esp_bt.h");
 #endif
 
 /**
@@ -192,6 +202,8 @@ typedef struct {
     uint8_t ble_sca;                        /*!< BLE low power crystal accuracy index */
     uint8_t pcm_role;                       /*!< PCM role (master & slave)*/
     uint8_t pcm_polar;                      /*!< PCM polar trig (falling clk edge & rising clk edge) */
+    bool hli;                               /*!< Using high level interrupt or not */
+    uint16_t dup_list_refresh_period;       /*!< Duplicate scan list refresh period */
     uint32_t magic;                         /*!< Magic number */
 } esp_bt_controller_config_t;
 
@@ -351,12 +363,6 @@ esp_err_t esp_bt_controller_disable(void);
  */
 esp_bt_controller_status_t esp_bt_controller_get_status(void);
 
-/**
- * @brief  Get BT MAC address.
- * @return Array pointer of length 6 storing MAC address value.
- */
-uint8_t* esp_bt_get_mac(void);
-
 /** @brief esp_vhci_host_callback
  *  used for vhci call host function to notify what host need to do
  */
@@ -488,6 +494,7 @@ esp_err_t esp_bt_sleep_disable(void);
  * Note that scan duplicate list will be automatically cleared when the maximum amount of device in the filter is reached
  * the amount of device in the filter can be configured in menuconfig.
  *
+ * @note This function name is incorrectly spelled, it will be fixed in release 5.x version.
  *
  * @return
  *                  - ESP_OK : success
