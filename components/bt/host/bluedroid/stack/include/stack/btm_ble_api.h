@@ -129,7 +129,7 @@ typedef UINT8   tBTM_BLE_SFP;
 #define BTM_BLE_EXT_SCAN_WIN_MAX        0xFFFF
 #define BTM_BLE_CONN_INT_MIN            0x0006
 #define BTM_BLE_CONN_INT_MAX            0x0C80
-#define BTM_BLE_CONN_LATENCY_MAX        500
+#define BTM_BLE_CONN_LATENCY_MAX        499
 #define BTM_BLE_CONN_SUP_TOUT_MIN       0x000A
 #define BTM_BLE_CONN_SUP_TOUT_MAX       0x0C80
 #define BTM_BLE_CONN_PARAM_UNDEF        0xffff      /* use this value when a specific value not to be overwritten */
@@ -377,7 +377,7 @@ typedef UINT8   tBTM_BLE_AD_TYPE;
 
 /* adv tx power level */
 #define BTM_BLE_ADV_TX_POWER_MIN        0           /* minimum tx power */
-#define BTM_BLE_ADV_TX_POWER_MAX        7           /* maximum tx power */
+#define BTM_BLE_ADV_TX_POWER_MAX        BTM_TX_POWER_LEVEL_MAX           /* maximum tx power */
 typedef UINT8 tBTM_BLE_ADV_TX_POWER;
 
 /* adv tx power in dBm */
@@ -1816,7 +1816,18 @@ void BTM_BleTurnOnPrivacyOnRemote(BD_ADDR bd_addr,
 **
 *******************************************************************************/
 //extern
-BOOLEAN BTM_BleUpdateAdvWhitelist(BOOLEAN add_remove, BD_ADDR emote_bda, tBLE_ADDR_TYPE addr_type, tBTM_ADD_WHITELIST_CBACK *add_wl_cb);
+BOOLEAN BTM_BleUpdateAdvWhitelist(BOOLEAN add_remove, BD_ADDR emote_bda, tBLE_ADDR_TYPE addr_type, tBTM_UPDATE_WHITELIST_CBACK *update_wl_cb);
+
+/*******************************************************************************
+**
+** Function         BTM_BleClearWhitelist
+**
+** Description      Clear all white list
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTM_BleClearWhitelist(tBTM_UPDATE_WHITELIST_CBACK *update_wl_cb);
 
 /*******************************************************************************
 **

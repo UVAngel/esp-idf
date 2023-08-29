@@ -52,6 +52,16 @@ tL2C_LCB *l2cu_allocate_lcb (BD_ADDR p_bd_addr, BOOLEAN is_bonding, tBT_TRANSPOR
     int         xx;
     tL2C_LCB    *p_lcb = &l2cb.lcb_pool[0];
 
+#if (CLASSIC_BT_INCLUDED == TRUE)
+            /* Check if peer device's and our BD_ADDR is same or not. It
+               should be different to avoid 'Impersonation in the Pin Pairing
+               Protocol' (CVE-2020-26555) vulnerability. */
+            if (memcmp((uint8_t *)p_bd_addr, (uint8_t *)&controller_get_interface()->get_address()->address, sizeof (BD_ADDR)) == 0) {
+                L2CAP_TRACE_ERROR ("%s connection rejected due to same BD ADDR", __func__);
+                return (NULL);
+            }
+#endif
+
     for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p_lcb++) {
         if (!p_lcb->in_use) {
             btu_free_timer(&p_lcb->timer_entry);
@@ -86,9 +96,6 @@ tL2C_LCB *l2cu_allocate_lcb (BD_ADDR p_bd_addr, BOOLEAN is_bonding, tBT_TRANSPOR
                 l2c_link_adjust_allocation();
             }
             p_lcb->link_xmit_data_q = list_new(NULL);
-#if (C2H_FLOW_CONTROL_INCLUDED == TRUE)
-            p_lcb->completed_packets = 0;
-#endif ///C2H_FLOW_CONTROL_INCLUDED == TRUE
             return (p_lcb);
         }
     }
@@ -259,11 +266,6 @@ void l2cu_release_lcb (tL2C_LCB *p_lcb)
         p_lcb->le_sec_pending_q = NULL;
     }
 #endif  ///BLE_INCLUDED == TRUE
-
-#if (C2H_FLOW_CONTROL_INCLUDED == TRUE)
-    p_lcb->completed_packets = 0;
-#endif ///C2H_FLOW_CONTROL_INCLUDED == TRUE
-
 }
 
 
@@ -2353,7 +2355,7 @@ BOOLEAN l2cu_create_conn_after_switch (tL2C_LCB *p_lcb)
         clock_offset = (UINT16)(p_inq_info->results.clock_offset);
     } else {
         /* No info known. Use default settings */
-        page_scan_rep_mode = HCI_PAGE_SCAN_REP_MODE_R1;
+        page_scan_rep_mode = HCI_PAGE_SCAN_REP_MODE_R2;
         page_scan_mode = HCI_MANDATARY_PAGE_SCAN_MODE;
 
         clock_offset = (p_dev_rec) ? p_dev_rec->clock_offset : 0;
@@ -3165,36 +3167,6 @@ void l2cu_send_peer_ble_credit_based_disconn_req(tL2C_CCB *p_ccb)
 }
 
 #endif /* BLE_INCLUDED == TRUE */
-
-#if (C2H_FLOW_CONTROL_INCLUDED == TRUE)
-/*******************************************************************************
-**
-** Function         l2cu_find_completed_packets
-**
-** Description      Find the completed packets,
-**                  Then set it to zero
-**
-** Returns          The num of handles
-**
-*******************************************************************************/
-UINT8 l2cu_find_completed_packets(UINT16 *handles, UINT16 *num_packets)
-{
-    int         xx;
-    UINT8       num = 0;
-    tL2C_LCB    *p_lcb = &l2cb.lcb_pool[0];
-
-    for (xx = 0; xx < MAX_L2CAP_LINKS; xx++, p_lcb++) {
-        if ((p_lcb->in_use) && (p_lcb->completed_packets > 0)) {
-            *(handles++) = p_lcb->handle;
-            *(num_packets++) = p_lcb->completed_packets;
-            num++;
-            p_lcb->completed_packets = 0;
-        }
-    }
-
-    return num;
-}
-#endif ///C2H_FLOW_CONTROL_INCLUDED == TRUE
 
 /*******************************************************************************
 ** Functions used by both Full and Light Stack

@@ -20,12 +20,6 @@ ifdef CONFIG_NEWLIB_NANO_FORMAT
 LINKER_SCRIPTS += esp32.rom.newlib-nano.ld
 endif
 
-endif #CONFIG_SPIRAM_CACHE_WORKAROUND
-
-ifndef CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
-LINKER_SCRIPTS += esp32.rom.spiflash.ld
-endif
-
 ifndef CONFIG_SDK_TOOLCHAIN_SUPPORTS_TIME_WIDE_64_BITS
 # If SDK_TOOLCHAIN_SUPPORTS_TIME_WIDE_64_BITS option is defined
 # then all time functions from the ROM memory will not be linked.
@@ -33,7 +27,17 @@ ifndef CONFIG_SDK_TOOLCHAIN_SUPPORTS_TIME_WIDE_64_BITS
 LINKER_SCRIPTS += esp32.rom.newlib-time.ld
 endif
 
+endif #CONFIG_SPIRAM_CACHE_WORKAROUND
+
+ifndef CONFIG_SPI_FLASH_ROM_DRIVER_PATCH
+LINKER_SCRIPTS += esp32.rom.spiflash.ld
+endif
+
+
+COMPONENT_SRCDIRS := patches
+
 COMPONENT_ADD_LDFLAGS += -L $(COMPONENT_PATH)/esp32/ld \
                          $(addprefix -T ,$(LINKER_SCRIPTS)) \
+                         -l$(COMPONENT_NAME) -Wl,--wrap=longjmp \
 
 COMPONENT_ADD_LINKER_DEPS += $(addprefix esp32/ld/, $(LINKER_SCRIPTS))

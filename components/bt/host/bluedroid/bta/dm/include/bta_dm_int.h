@@ -52,6 +52,7 @@ enum {
     BTA_DM_API_ENABLE_EVT = BTA_SYS_EVT_START(BTA_ID_DM),
     BTA_DM_API_DISABLE_EVT,
     BTA_DM_API_SET_NAME_EVT,
+    BTA_DM_API_GET_NAME_EVT,
     BTA_DM_API_CONFIG_EIR_EVT,
     BTA_DM_API_SET_AFH_CHANNELS_EVT,
 #if (SDP_INCLUDED == TRUE)
@@ -74,6 +75,10 @@ enum {
     BTA_DM_PM_BTM_STATUS_EVT,
     BTA_DM_PM_TIMER_EVT,
 #endif /* #if (BTA_DM_PM_INCLUDED == TRUE) */
+#if (BTA_DM_QOS_INCLUDED == TRUE)
+    /* Quality of Service set events */
+    BTA_DM_API_QOS_SET_EVT,
+#endif /* #if (BTA_DM_QOS_INCLUDED == TRUE) */
 #if (SMP_INCLUDED == TRUE)
     /* simple pairing events */
     BTA_DM_API_CONFIRM_EVT,
@@ -160,6 +165,7 @@ enum {
     BTA_DM_API_REMOVE_DEVICE_EVT,
     BTA_DM_API_BLE_SET_CHANNELS_EVT,
     BTA_DM_API_UPDATE_WHITE_LIST_EVT,
+    BTA_DM_API_CLEAR_WHITE_LIST_EVT,
     BTA_DM_API_BLE_READ_ADV_TX_POWER_EVT,
     BTA_DM_API_READ_RSSI_EVT,
 #if BLE_INCLUDED == TRUE
@@ -195,6 +201,11 @@ typedef struct {
     BT_HDR              hdr;
     BD_NAME             name; /* max 248 bytes name, plus must be Null terminated */
 } tBTA_DM_API_SET_NAME;
+
+typedef struct {
+    BT_HDR              hdr;
+    tBTA_GET_DEV_NAME_CBACK *p_cback;
+} tBTA_DM_API_GET_NAME;
 
 /* data type for BTA_DM_API_CONFIG_EIR_EVT */
 typedef struct {
@@ -239,7 +250,7 @@ typedef struct {
     BOOLEAN   add_remove;
     BD_ADDR   remote_addr;
     tBLE_ADDR_TYPE addr_type;
-    tBTA_ADD_WHITELIST_CBACK *add_wl_cb;
+    tBTA_UPDATE_WHITELIST_CBACK *update_wl_cb;
 }tBTA_DM_API_UPDATE_WHITE_LIST;
 
 typedef struct {
@@ -458,6 +469,16 @@ typedef struct {
     tBTA_DM_PM_ACTION  pm_request;
 } tBTA_DM_PM_TIMER;
 #endif /* #if (BTA_DM_PM_INCLUDED == TRUE) */
+
+#if (BTA_DM_QOS_INCLUDED == TRUE)
+/* data type for BTA_DM_API_QOS_SET_EVT */
+typedef struct {
+    BT_HDR          hdr;
+    BD_ADDR         bd_addr;
+    UINT32          t_poll;
+    tBTM_CMPL_CB    *p_cb;
+} tBTA_DM_API_QOS_SET;
+#endif /* #if (BTA_DM_QOS_INCLUDED == TRUE) */
 
 /* data type for BTA_DM_API_ADD_DEVICE_EVT */
 typedef struct {
@@ -833,6 +854,7 @@ typedef union {
     tBTA_DM_API_ENABLE  enable;
 
     tBTA_DM_API_SET_NAME set_name;
+    tBTA_DM_API_GET_NAME get_name;
     tBTA_DM_API_CONFIG_EIR config_eir;
 
     tBTA_DM_API_SET_AFH_CHANNELS set_afh_channels;
@@ -886,6 +908,11 @@ typedef union {
 
     tBTA_DM_PM_TIMER pm_timer;
 #endif /* #if (BTA_DM_PM_INCLUDED == TRUE) */
+
+#if (BTA_DM_QOS_INCLUDED == TRUE)
+    /* Quality of Service set events */
+    tBTA_DM_API_QOS_SET qos_set;
+#endif /* #if (BTA_DM_QOS_INCLUDED == TRUE) */
 
     tBTA_DM_API_DI_DISC     di_disc;
 
@@ -1298,11 +1325,13 @@ extern void bta_dm_search_sm_disable( void );
 extern void bta_dm_enable (tBTA_DM_MSG *p_data);
 extern void bta_dm_disable (tBTA_DM_MSG *p_data);
 extern void bta_dm_set_dev_name (tBTA_DM_MSG *p_data);
+extern void bta_dm_get_dev_name (tBTA_DM_MSG *p_data);
 extern void bta_dm_config_eir (tBTA_DM_MSG *p_data);
 extern void bta_dm_set_afh_channels (tBTA_DM_MSG *p_data);
 extern void bta_dm_read_rmt_name(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_set_channels (tBTA_DM_MSG *p_data);
 extern void bta_dm_update_white_list(tBTA_DM_MSG *p_data);
+extern void bta_dm_clear_white_list(tBTA_DM_MSG *p_data);
 extern void bta_dm_ble_read_adv_tx_power(tBTA_DM_MSG *p_data);
 extern void bta_dm_read_rssi(tBTA_DM_MSG *p_data);
 extern void bta_dm_set_visibility (tBTA_DM_MSG *p_data);
@@ -1389,6 +1418,10 @@ extern void bta_dm_pm_active(BD_ADDR peer_addr);
 extern void bta_dm_pm_btm_status(tBTA_DM_MSG *p_data);
 extern void bta_dm_pm_timer(tBTA_DM_MSG *p_data);
 #endif /* #if (BTA_DM_PM_INCLUDED == TRUE) */
+
+#if (BTA_DM_QOS_INCLUDED == TRUE)
+extern void bta_dm_set_qos(tBTA_DM_MSG *p_data);
+#endif /* #if (BTA_DM_QOS_INCLUDED == TRUE) */
 
 extern UINT8 bta_dm_get_av_count(void);
 extern void bta_dm_search_start (tBTA_DM_MSG *p_data);

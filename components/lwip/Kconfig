@@ -228,6 +228,15 @@ menu "LWIP"
             Enabling this option performs a check (via ARP request) if the offered IP address
             is not already in use by another host on the network.
 
+    config LWIP_DHCP_DISABLE_CLIENT_ID
+        bool "DHCP: Disable Use of HW address as client identification"
+        default n
+        help
+            This option could be used to disable DHCP client identification with its MAC address.
+            (Client id is used by DHCP servers to uniquely identify clients and are included
+            in the DHCP packets as an option 61)
+            Set this option to "y" in order to exclude option 61 from DHCP packets.
+
     config LWIP_DHCP_RESTORE_LAST_IP
         bool "DHCP: Restore last IP obtained from DHCP server"
         default n
@@ -235,6 +244,14 @@ menu "LWIP"
             When this option is enabled, DHCP client tries to re-obtain last valid IP address obtained from DHCP
             server. Last valid DHCP configuration is stored in nvs and restored after reset/power-up. If IP is still
             available, there is no need for sending discovery message to DHCP server and save some time.
+
+    config LWIP_DHCP_COARSE_TIMER_SECS
+        int "DHCP coarse timer interval(s)"
+        default 1
+        range 1 10
+        help
+            Set DHCP coarse interval in seconds.
+            A higher value will be less precise but cost less power consumption.
 
     menu "DHCP server"
 
@@ -411,7 +428,13 @@ menu "LWIP"
             int "Maximum segment lifetime (MSL)"
             default 60000
             help
-                Set maximum segment lifetime in in milliseconds.
+                Set maximum segment lifetime in milliseconds.
+
+        config LWIP_TCP_FIN_WAIT_TIMEOUT
+            int "Maximum FIN segment lifetime"
+            default 20000
+            help
+                Set maximum segment lifetime in milliseconds.
 
         config LWIP_TCP_SND_BUF_DEFAULT
             int "Default send buffer size"

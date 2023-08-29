@@ -4,6 +4,8 @@
 
 :link_to_translation:`en:[English]`
 
+.. 请保证 README.md 文件与该文件保持同步
+
 本文档旨在指导用户搭建 {IDF_TARGET_NAME} 硬件开发的软件环境，通过一个简单的示例展示如何使用 ESP-IDF (Espressif IoT Development Framework) 配置菜单，并编译、下载固件至 {IDF_TARGET_NAME} 开发板等步骤。
 
 .. include-build-file:: inc/version-note.inc
@@ -11,9 +13,9 @@
 概述
 ============
 
-.. only:: esp32
+{IDF_TARGET_NAME} SoC 芯片支持以下功能：
 
-    ESP32 SoC 芯片支持以下功能：
+.. only:: esp32
 
     * 2.4 GHz Wi-Fi
     * 蓝牙 4.2
@@ -22,8 +24,6 @@
     * 多种外设
 
 .. only:: esp32s2
-
-    ESP32-S2 SoC 芯片支持以下功能：
 
     * 2.4 GHz Wi-Fi
     * 高性能单核
@@ -56,8 +56,7 @@
 或者，您也可以通过以下集成开发环境 (IDE) 中的官方插件完成安装流程：
 
     * `Eclipse 插件 <https://github.com/espressif/idf-eclipse-plugin>`_ (`安装 <https://github.com/espressif/idf-eclipse-plugin#installing-idf-plugin-using-update-site-url>`__)
-    * `VS Code 插件 <https://github.com/espressif/vscode-esp-idf-extension>`_ (`安装 <https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/ONBOARDING.md>`__)
-
+    * `VS Code 插件 <https://github.com/espressif/vscode-esp-idf-extension>`_ (`安装 <https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/tutorial/install.md>`__)
 
 .. figure:: ../../_static/what-you-need.png
     :align: center
@@ -89,6 +88,8 @@
         :maxdepth: 1
 
         ESP32-S2-Saola-1 <../hw-reference/esp32s2/user-guide-saola-1-v1.2>
+        ESP32-S2-DevKitM-1(U) <../hw-reference/esp32s2/user-guide-devkitm-1-v1>
+        ESP32-S2-DevKitC-1 <../hw-reference/esp32s2/user-guide-s2-devkitc-1>
         ESP32-S2-Kaluga-Kit <../hw-reference/esp32s2/user-guide-esp32-s2-kaluga-1-kit>
 
 .. _get-started-step-by-step:
@@ -152,7 +153,6 @@
 
 .. _get-started-get-esp-idf:
 
-
 第二步：获取 ESP-IDF
 =================================
 
@@ -201,14 +201,14 @@ Windows 操作系统
 .. code-block:: batch
 
     cd %userprofile%\esp\esp-idf
-    install.bat
+    install.bat {IDF_TARGET_PATH_NAME}
 
 或使用 Windows PowerShell
 
 .. code-block:: powershell
 
     cd ~/esp/esp-idf
-    ./install.ps1
+    ./install.ps1 {IDF_TARGET_PATH_NAME}
 
 Linux 和 macOS 操作系统
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -216,6 +216,46 @@ Linux 和 macOS 操作系统
 .. code-block:: bash
 
     cd ~/esp/esp-idf
+    ./install.sh {IDF_TARGET_PATH_NAME}
+
+或使用 Fish shell
+
+.. code-block:: fish
+
+    cd ~/esp/esp-idf
+    ./install.fish {IDF_TARGET_PATH_NAME}
+
+.. note::
+    通过一次性指定多个目标，可为多个目标芯片同时安装工具，如运行 ``./install.sh esp32,esp32c3,esp32s3``。
+    通过运行 ``./install.sh`` 或 ``./install.sh all`` 可一次性为所有支持的目标芯片安装工具。
+
+下载工具备选方案
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ESP-IDF 工具安装器会下载 Github 发布版本中附带的一些工具，如果访问 Github 较为缓慢，则可以设置一个环境变量，实现优先选择 Espressif 的下载服务器进行 Github 资源下载。
+
+.. 注解:: 该设置只影响从 Github 发布版本中下载的单个工具，它并不会改变访问任何 Git 仓库的 URL。
+
+Windows 操作系统
+-----------------
+
+如果希望在运行 ESP-IDF 工具安装器或在使用命令行安装工具时优先选择 Espressif 下载服务器，可通过以下方式设置：打开系统控制面板，然后点击高级设置，添加一个新的环境变量（类型为用户或系统都可以，名称为 ``IDF_GITHUB_ASSETS``，值为 ``dl.espressif.com/github_assets``），最后点击确定。
+
+如果在添加新的环境变量前命令行窗口或 ESP-IDF 工具安装器窗口已经打开，请关闭这些窗口后重新打开。
+
+当设置好这个新的环境变量后，ESP-IDF 工具安装器以及命令行安装程序将会优先选择 Espressif 下载服务器。
+
+.. 在 ESP-IDF 工具安装器的二进制文件更新后（导入复选框），这段需要重新更新
+
+Linux 和 macOS 操作系统
+--------------------------
+
+要在安装工具时优先选择 Espressif 下载服务器，请在运行 ``install.sh`` 时使用以下命令：
+
+.. code-block:: bash
+
+    cd ~/esp/esp-idf
+    export IDF_GITHUB_ASSETS="dl.espressif.com/github_assets"
     ./install.sh
 
 自定义工具安装路径
@@ -226,6 +266,7 @@ Linux 和 macOS 操作系统
 如果修改了 ``IDF_TOOLS_PATH`` 变量，请确保该变量在每次执行“安装脚本” （``install.bat``、``install.ps1`` 或 ``install.sh``）和导出脚本 （``export.bat``、``export.ps1`` 或 ``export.sh``）时均保持一致。
 
 .. _get-started-set-up-env:
+
 
 第四步：设置环境变量
 =======================================
@@ -263,7 +304,7 @@ Linux 和 macOS 操作系统
 如果您需要经常运行 ESP-IDF，您可以为执行 ``export.sh`` 创建一个别名，具体步骤如下：
 
 1. 复制并粘贴以下命令到 shell 配置文件中（``.profile``， ``.bashrc``， ``.zprofile`` 等）
-    
+
    .. code-block:: bash
 
         alias get_idf='. $HOME/esp/esp-idf/export.sh'
@@ -359,7 +400,7 @@ Windows 操作系统
     :alt: 工程配置 — 主窗口
     :figclass: align-center
 
-工程配置 — 主窗口
+    工程配置 — 主窗口
 
 您可以通过此菜单设置项目的具体变量，包括 Wi-Fi 网络名称、密码和处理器速度等. ``hello_world`` 示例项目会以默认配置运行，因此可以跳过使用 ``menuconfig`` 进行项目配置这一步骤。
 
@@ -378,7 +419,9 @@ Windows 操作系统
 第八步：编译工程
 =========================
 
-请使用以下命令，编译烧录工程：::
+请使用以下命令，编译烧录工程：
+
+.. code-block:: batch
 
     idf.py build
 
@@ -414,7 +457,9 @@ Windows 操作系统
 
 请使用以下命令，将刚刚生成的二进制文件烧录（bootloader.bin, partition-table.bin 和 hello-world.bin）至您的 {IDF_TARGET_NAME} 开发板：
 
-    ``idf.py -p PORT [-b BAUD] flash``
+.. code-block:: bash
+
+    idf.py -p PORT [-b BAUD] flash
 
 请将 PORT 替换为 {IDF_TARGET_NAME} 开发板的串口名称，具体可见 :ref:`get-started-connect`。
 
@@ -606,6 +651,7 @@ Windows 操作系统
     一些示例程序不支持 {IDF_TARGET_NAME}，因为 {IDF_TARGET_NAME} 中不包含所需的硬件。
 
     在编译示例程序前请查看 README 文件中 ``Supported Targets`` 表格。如果表格中包含 {IDF_TARGET_NAME}， 或者不存在这个表格，那么即表示 {IDF_TARGET_NAME} 支持这个示例程序。
+
 
 更新 ESP-IDF
 ================

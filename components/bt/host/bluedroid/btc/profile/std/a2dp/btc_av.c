@@ -48,6 +48,11 @@ bool g_av_with_rc;
 bool g_a2dp_on_init;
 // global variable to indicate a2dp is deinitialized
 bool g_a2dp_on_deinit;
+// global variable to indicate a2dp source deinitialization is ongoing
+bool g_a2dp_source_ongoing_deinit;
+// global variable to indicate a2dp sink deinitialization is ongoing
+bool g_a2dp_sink_ongoing_deinit;
+
 
 /*****************************************************************************
 **  Constants & Macros
@@ -136,6 +141,7 @@ static BOOLEAN btc_av_state_opening_handler(btc_sm_event_t event, void *data);
 static BOOLEAN btc_av_state_opened_handler(btc_sm_event_t event, void *data);
 static BOOLEAN btc_av_state_started_handler(btc_sm_event_t event, void *data);
 static BOOLEAN btc_av_state_closing_handler(btc_sm_event_t event, void *data);
+static void clean_up(int service_id);
 
 #if BTC_AV_SRC_INCLUDED
 static bt_status_t btc_a2d_src_init(void);
@@ -157,7 +163,7 @@ static const btc_sm_handler_t btc_av_state_handlers[] = {
     btc_av_state_closing_handler
 };
 
-static void btc_av_event_free_data(btc_sm_event_t event, void *p_data);
+static void btc_av_event_free_data(btc_msg_t *msg);
 
 /*************************************************************************
 ** Extern functions
@@ -445,7 +451,7 @@ static BOOLEAN btc_av_state_opening_handler(btc_sm_event_t event, void *p_data)
             av_state = BTC_AV_STATE_OPENED;
         } else {
             BTC_TRACE_WARNING("BTA_AV_OPEN_EVT::FAILED status: %d\n", p_bta_data->open.status);
-            
+
             conn_stat = ESP_A2D_CONNECTION_STATE_DISCONNECTED;
             av_state = BTC_AV_STATE_IDLE;
         }
@@ -675,6 +681,9 @@ static BOOLEAN btc_av_state_opened_handler(btc_sm_event_t event, void *p_data)
             /* pending start flag will be cleared when exit current state */
         }
 #endif /* BTC_AV_SRC_INCLUDED */
+        /* wait for audio path to open */
+        btc_a2dp_control_datapath_ctrl(BTC_AV_DATAPATH_OPEN_EVT);
+
         btc_sm_change_state(btc_av_cb.sm_handle, BTC_AV_STATE_STARTED);
 
     } break;
@@ -704,6 +713,12 @@ static BOOLEAN btc_av_state_opened_handler(btc_sm_event_t event, void *p_data)
 
         /* change state to idle, send acknowledgement if start is pending */
         btc_sm_change_state(btc_av_cb.sm_handle, BTC_AV_STATE_IDLE);
+
+        if (g_a2dp_source_ongoing_deinit) {
+            clean_up(BTA_A2DP_SOURCE_SERVICE_ID);
+        } else if (g_a2dp_sink_ongoing_deinit) {
+            clean_up(BTA_A2DP_SINK_SERVICE_ID);
+        }
         break;
     }
 
@@ -892,6 +907,12 @@ static BOOLEAN btc_av_state_started_handler(btc_sm_event_t event, void *p_data)
         btc_report_connection_state(ESP_A2D_CONNECTION_STATE_DISCONNECTED, &(btc_av_cb.peer_bda),
                                     close->disc_rsn);
         btc_sm_change_state(btc_av_cb.sm_handle, BTC_AV_STATE_IDLE);
+
+        if (g_a2dp_source_ongoing_deinit) {
+            clean_up(BTA_A2DP_SOURCE_SERVICE_ID);
+        } else if (g_a2dp_sink_ongoing_deinit) {
+            clean_up(BTA_A2DP_SINK_SERVICE_ID);
+        }
         break;
 
     CHECK_RC_EVENT(event, p_data);
@@ -947,11 +968,11 @@ void btc_av_event_deep_copy(btc_msg_t *msg, void *p_dest, void *p_src)
     }
 }
 
-static void btc_av_event_free_data(btc_sm_event_t event, void *p_data)
+static void btc_av_event_free_data(btc_msg_t *msg)
 {
-    switch (event) {
+    switch (msg->act) {
     case BTA_AV_META_MSG_EVT: {
-        tBTA_AV *av = (tBTA_AV *)p_data;
+        tBTA_AV *av = (tBTA_AV *)msg->arg;
         if (av->meta_msg.p_data) {
             osi_free(av->meta_msg.p_data);
         }
@@ -1014,7 +1035,9 @@ static bt_status_t btc_av_init(int service_id)
 #endif
             g_a2dp_on_init = false;
             g_a2dp_on_deinit = true;
-            return BT_STATUS_FAIL;
+            g_a2dp_source_ongoing_deinit = false;
+            g_a2dp_sink_ongoing_deinit = false;
+            goto av_init_fail;
         }
 
         /* Also initialize the AV state machine */
@@ -1030,9 +1053,17 @@ static bt_status_t btc_av_init(int service_id)
         btc_a2dp_on_init();
         g_a2dp_on_init = true;
         g_a2dp_on_deinit = false;
+        g_a2dp_source_ongoing_deinit = false;
+        g_a2dp_sink_ongoing_deinit = false;
+
+        esp_a2d_cb_param_t param;
+        memset(&param, 0, sizeof(esp_a2d_cb_param_t));
+        param.a2d_prof_stat.init_state = ESP_A2D_INIT_SUCCESS;
+        btc_a2d_cb_to_app(ESP_A2D_PROF_STATE_EVT, &param);
         return BT_STATUS_SUCCESS;
     }
 
+av_init_fail:
     return BT_STATUS_FAIL;
 }
 
@@ -1099,6 +1130,13 @@ static void clean_up(int service_id)
 #endif
     g_a2dp_on_init = false;
     g_a2dp_on_deinit = true;
+    g_a2dp_source_ongoing_deinit = false;
+    g_a2dp_sink_ongoing_deinit = false;
+
+    esp_a2d_cb_param_t param;
+    memset(&param, 0, sizeof(esp_a2d_cb_param_t));
+    param.a2d_prof_stat.init_state = ESP_A2D_DEINIT_SUCCESS;
+    btc_a2d_cb_to_app(ESP_A2D_PROF_STATE_EVT, &param);
 }
 
 /*******************************************************************************
@@ -1184,7 +1222,7 @@ void btc_dispatch_sm_event(btc_av_sm_event_t event, void *p_data, int len)
     msg.sig = BTC_SIG_API_CALL;
     msg.pid = BTC_PID_A2DP;
     msg.act = event;
-    btc_transfer_context(&msg, p_data, len, NULL);
+    btc_transfer_context(&msg, p_data, len, NULL, NULL);
 }
 
 static void bte_av_callback(tBTA_AV_EVT event, tBTA_AV *p_data)
@@ -1195,7 +1233,8 @@ static void bte_av_callback(tBTA_AV_EVT event, tBTA_AV *p_data)
     msg.sig = BTC_SIG_API_CB;
     msg.pid = BTC_PID_A2DP;
     msg.act = (uint8_t) event;
-    stat = btc_transfer_context(&msg, p_data, sizeof(tBTA_AV), btc_av_event_deep_copy);
+    stat = btc_transfer_context(&msg, p_data, sizeof(tBTA_AV),
+                                    btc_av_event_deep_copy, btc_av_event_free_data);
 
     if (stat) {
         BTC_TRACE_ERROR("%s transfer failed\n", __func__);
@@ -1238,7 +1277,7 @@ static void bte_av_media_callback(tBTA_AV_EVT event, tBTA_AV_MEDIA *p_data)
             memset(&arg, 0, sizeof(btc_av_args_t));
             arg.mcc.type = ESP_A2D_MCT_SBC;
             memcpy(arg.mcc.cie.sbc, (uint8_t *)p_data + 3, ESP_A2D_CIE_LEN_SBC);
-            btc_transfer_context(&msg, &arg, sizeof(btc_av_args_t), NULL);
+            btc_transfer_context(&msg, &arg, sizeof(btc_av_args_t), NULL, NULL);
         } else {
             BTC_TRACE_ERROR("ERROR dump_codec_info A2D_ParsSbcInfo fail:%d\n", a2d_status);
         }
@@ -1435,7 +1474,7 @@ void btc_a2dp_call_handler(btc_msg_t *msg)
     }
     case BTC_AV_SINK_API_DISCONNECT_EVT: {
         CHECK_BTAV_INIT();
-        btc_av_disconn_req_t disconn_req;   
+        btc_av_disconn_req_t disconn_req;
         memcpy(&disconn_req.target_bda, &arg->disconn, sizeof(bt_bdaddr_t));
         btc_sm_dispatch(btc_av_cb.sm_handle, BTC_AV_DISCONNECT_REQ_EVT, &disconn_req);
         break;
@@ -1474,10 +1513,6 @@ void btc_a2dp_call_handler(btc_msg_t *msg)
         btc_a2dp_control_media_ctrl(arg->ctrl);
         break;
     }
-    case BTC_AV_DATAPATH_CTRL_EVT: {
-        btc_a2dp_control_datapath_ctrl(arg->dp_evt);
-        break;
-    }
     case BTC_AV_CONNECT_REQ_EVT:
         btc_sm_dispatch(btc_av_cb.sm_handle, msg->act, (char *)msg->arg);
         break;
@@ -1496,7 +1531,7 @@ void btc_a2dp_call_handler(btc_msg_t *msg)
 void btc_a2dp_cb_handler(btc_msg_t *msg)
 {
     btc_sm_dispatch(btc_av_cb.sm_handle, msg->act, (void *)(msg->arg));
-    btc_av_event_free_data(msg->act, msg->arg);
+    btc_av_event_free_data(msg);
 }
 
 #if BTC_AV_SINK_INCLUDED
@@ -1527,7 +1562,15 @@ static bt_status_t btc_a2d_sink_connect(bt_bdaddr_t *remote_bda)
 
 static void btc_a2d_sink_deinit(void)
 {
-    clean_up(BTA_A2DP_SINK_SERVICE_ID);
+    g_a2dp_sink_ongoing_deinit = true;
+    if (btc_av_is_connected()) {
+        BTA_AvClose(btc_av_cb.bta_handle);
+        if (btc_av_cb.peer_sep == AVDT_TSEP_SRC && g_av_with_rc == true) {
+            BTA_AvCloseRc(btc_av_cb.bta_handle);
+        }
+    } else {
+        clean_up(BTA_A2DP_SINK_SERVICE_ID);
+    }
 }
 
 #endif /* BTC_AV_SINK_INCLUDED */
@@ -1552,7 +1595,15 @@ static bt_status_t btc_a2d_src_init(void)
 
 static void btc_a2d_src_deinit(void)
 {
-    clean_up(BTA_A2DP_SOURCE_SERVICE_ID);
+    g_a2dp_source_ongoing_deinit = true;
+    if (btc_av_is_connected()) {
+        BTA_AvClose(btc_av_cb.bta_handle);
+        if (btc_av_cb.peer_sep == AVDT_TSEP_SNK && g_av_with_rc == true) {
+            BTA_AvCloseRc(btc_av_cb.bta_handle);
+        }
+    } else {
+        clean_up(BTA_A2DP_SOURCE_SERVICE_ID);
+    }
 }
 
 static bt_status_t btc_a2d_src_connect(bt_bdaddr_t *remote_bda)

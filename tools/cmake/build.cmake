@@ -129,13 +129,16 @@ function(__build_init idf_path)
     # Create the build target, to which the ESP-IDF build properties, dependencies are attached to
     add_library(__idf_build_target STATIC IMPORTED)
 
-    set_default(python "python")
+    # Set the Python path (which may be passed in via -DPYTHON=) and store in a build property
+    set_default(PYTHON "python")
+    file(TO_CMAKE_PATH ${PYTHON} PYTHON)
+    idf_build_set_property(PYTHON ${PYTHON})
 
-    idf_build_set_property(PYTHON ${python})
     idf_build_set_property(IDF_PATH ${idf_path})
 
     idf_build_set_property(__PREFIX idf)
     idf_build_set_property(__CHECK_PYTHON 1)
+    idf_build_set_property(IDF_COMPONENT_MANAGER 0)
 
     __build_set_default_build_specifications()
 
@@ -267,8 +270,12 @@ function(__build_check_python)
         message(STATUS "Checking Python dependencies...")
         execute_process(COMMAND "${python}" "${idf_path}/tools/check_python_dependencies.py"
             RESULT_VARIABLE result)
-        if(NOT result EQUAL 0)
+        if(result EQUAL 1)
+            # check_python_dependencies returns error code 1 on failure
             message(FATAL_ERROR "Some Python dependencies must be installed. Check above message for details.")
+        elseif(NOT result EQUAL 0)
+            # means check_python_dependencies.py failed to run at all, result should be an error message
+            message(FATAL_ERROR "Failed to run Python dependency check. Python: ${python}, Error: ${result}")
         endif()
     endif()
 endfunction()
@@ -397,6 +404,35 @@ macro(idf_build_process target)
     __build_check_python()
 
     idf_build_set_property(__COMPONENT_REQUIRES_COMMON ${target} APPEND)
+
+    idf_build_get_property(idf_component_manager IDF_COMPONENT_MANAGER)
+    if(idf_component_manager EQUAL "1")
+        set(managed_components_list_file ${CMAKE_BINARY_DIR}/managed_components_list.temp.cmake)
+
+        # Call for package manager to prepare remote dependencies
+        execute_process(COMMAND ${PYTHON}
+            "-m"
+            "idf_component_manager.prepare_components"
+            "--project_dir=${CMAKE_CURRENT_LIST_DIR}"
+            "prepare_dependencies"
+            "--managed_components_list_file=${managed_components_list_file}"
+            RESULT_VARIABLE result
+            ERROR_VARIABLE error)
+
+        if(NOT result EQUAL 0)
+            message(FATAL_ERROR "${error}")
+        endif()
+
+        # Include managed components
+        include(${managed_components_list_file})
+        file(REMOVE ${managed_components_list_file})
+    else()
+        message(VERBOSE "IDF Component manager was explicitly disabled by setting IDF_COMPONENT_MANAGER=0")
+        if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/idf_project.yml")
+            message(WARNING "\"idf_project.yml\" file is found in project directory, "
+                    "but component manager is not enabled. Please set IDF_COMPONENT_MANAGER environment variable.")
+        endif()
+    endif()
 
     # Perform early expansion of component CMakeLists.txt in CMake scripting mode.
     # It is here we retrieve the public and private requirements of each component.

@@ -26,6 +26,7 @@
 #include "bootloader_clock.h"
 #include "bootloader_flash_config.h"
 #include "bootloader_mem.h"
+#include "bootloader_flash_priv.h"
 
 #include "esp32s2/rom/cache.h"
 #include "esp32s2/rom/ets_sys.h"
@@ -205,7 +206,7 @@ static esp_err_t bootloader_init_spi_flash(void)
     }
 #endif
 
-    esp_rom_spiflash_unlock();
+    bootloader_flash_unlock();
 
 #if CONFIG_ESPTOOLPY_FLASHMODE_QIO || CONFIG_ESPTOOLPY_FLASHMODE_QOUT
     bootloader_enable_qio_mode();
@@ -213,6 +214,8 @@ static esp_err_t bootloader_init_spi_flash(void)
 
     print_flash_info(&bootloader_image_hdr);
     update_flash_config(&bootloader_image_hdr);
+    //ensure the flash is write-protected
+    bootloader_enable_wp();
     return ESP_OK;
 }
 
@@ -251,11 +254,13 @@ static void bootloader_init_uart_console(void)
         const uint32_t tx_idx = tx_idx_list[uart_num];
         const uint32_t rx_idx = rx_idx_list[uart_num];
 
+        PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[uart_rx_gpio], PIN_FUNC_GPIO);
         PIN_INPUT_ENABLE(GPIO_PIN_MUX_REG[uart_rx_gpio]);
         gpio_pad_pullup(uart_rx_gpio);
 
         gpio_matrix_out(uart_tx_gpio, tx_idx, 0, 0);
         gpio_matrix_in(uart_rx_gpio, rx_idx, 0);
+        PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[uart_tx_gpio], PIN_FUNC_GPIO);
 
         DPORT_SET_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
         DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, uart_reset[uart_num]);
@@ -372,6 +377,11 @@ esp_err_t bootloader_init(void)
     bootloader_print_banner();
     // update flash ID
     bootloader_flash_update_id();
+    // Check and run XMC startup flow
+    if ((ret = bootloader_flash_xmc_startup()) != ESP_OK) {
+        ESP_LOGE(TAG, "failed when running XMC startup flow, reboot!");
+        goto err;
+    }
     // read bootloader header
     if ((ret = bootloader_read_bootloader_header()) != ESP_OK) {
         goto err;

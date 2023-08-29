@@ -58,6 +58,7 @@
 #define BTA_SDP_INCLUDED            TRUE
 #define BTA_DM_PM_INCLUDED          TRUE
 #define SDP_INCLUDED                TRUE
+#define BTA_DM_QOS_INCLUDED         TRUE
 
 #if (UC_BT_A2DP_ENABLED == TRUE)
 #define BTA_AR_INCLUDED             TRUE
@@ -298,6 +299,10 @@
 
 #ifndef BTA_DM_PM_INCLUDED
 #define BTA_DM_PM_INCLUDED FALSE
+#endif
+
+#ifndef BTA_DM_QOS_INCLUDED
+#define BTA_DM_QOS_INCLUDED FALSE
 #endif
 
 #ifndef BTA_PAN_INCLUDED
@@ -783,6 +788,7 @@
   '0' disables storage of the local name in BTM */
 #ifndef BTM_MAX_LOC_BD_NAME_LEN
 #define BTM_MAX_LOC_BD_NAME_LEN     64
+#define BTC_MAX_LOC_BD_NAME_LEN     BTM_MAX_LOC_BD_NAME_LEN
 #endif
 
 /* Fixed Default String. When this is defined as null string, the device's
@@ -875,7 +881,7 @@
 /* TRUE to include Sniff Subrating */
 #if (BTA_DM_PM_INCLUDED == TRUE)
 #ifndef BTM_SSR_INCLUDED
-#define BTM_SSR_INCLUDED                FALSE
+#define BTM_SSR_INCLUDED                TRUE
 #endif
 #endif /* BTA_DM_PM_INCLUDED */
 
@@ -1121,15 +1127,27 @@
 #endif
 
 #ifndef BTM_BLE_ADV_TX_POWER
+#ifdef CONFIG_IDF_TARGET_ESP32
 #define BTM_BLE_ADV_TX_POWER {-12, -9, -6, -3, 0, 3, 6, 9}
+#else
+#define BTM_BLE_ADV_TX_POWER {-24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15, 18, 21}
+#endif
 #endif
 
 #ifndef BTM_TX_POWER
+#ifdef CONFIG_IDF_TARGET_ESP32
 #define BTM_TX_POWER {-12, -9, -6, -3, 0, 3, 6, 9}
+#else
+#define BTM_TX_POWER {-24, -21, -18, -15, -12, -9, -6, -3, 0, 3, 6, 9, 12, 15, 18, 21}
+#endif
 #endif
 
 #ifndef BTM_TX_POWER_LEVEL_MAX
+#ifdef CONFIG_IDF_TARGET_ESP32
 #define BTM_TX_POWER_LEVEL_MAX 7
+#else
+#define BTM_TX_POWER_LEVEL_MAX 15
+#endif
 #endif
 
 
@@ -2078,12 +2096,6 @@ The maximum number of payload octets that the local device can receive in a sing
 /* Enable/disable BTSnoop memory logging */
 #ifndef BTSNOOP_MEM
 #define BTSNOOP_MEM FALSE
-#endif
-
-#if UC_BT_BLUEDROID_MEM_DEBUG
-#define HEAP_MEMORY_DEBUG   TRUE
-#else
-#define HEAP_MEMORY_DEBUG   FALSE
 #endif
 
 #if UC_HEAP_ALLOCATION_FROM_SPIRAM_FIRST

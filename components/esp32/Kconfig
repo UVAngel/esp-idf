@@ -564,18 +564,35 @@ menu "ESP32-specific"
             bool "Internal 8.5MHz oscillator, divided by 256 (~33kHz)"
     endchoice
 
-    config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT
-        bool "Additional current for external 32kHz crystal"
+    choice ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_METHOD
+        prompt "Additional current for external 32kHz crystal"
         depends on ESP32_RTC_CLK_SRC_EXT_CRYS
-        default "n"
+        depends on ESP32_REV_MIN <= 1
+        default ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_NONE
         help
-            Choose which additional current is used for rtc external crystal.
+            With some 32kHz crystal configurations, the X32N and X32P pins may not have enough
+            drive strength to keep the crystal oscillating. Choose the method to provide
+            additional current from touchpad 9 to the external 32kHz crystal. Note that
+            the deep sleep current is slightly high (4-5uA) and the touchpad and the
+            wakeup sources of both touchpad and ULP are not available in method 1 and method 2.
 
-            - With some 32kHz crystal configurations, the X32N and X32P pins may not
-              have enough drive strength to keep the crystal oscillating during deep sleep.
-              If this option is enabled, additional current from touchpad 9 is provided
-              internally to drive the 32kHz crystal. If this option is enabled, deep sleep current
-              is slightly higher (4-5uA) and the touchpad and ULP wakeup sources are not available.
+            This problem is fixed in ESP32 ECO 3, so this workaround is not needed. Setting the
+            project configuration to minimum revision ECO3 will disable this option, , allow
+            all wakeup sources, and save some code size.
+
+            - "None" option will not provide additional current to external crystal
+            - "Method 1" option can't ensure 100% to solve the external 32k crystal start failed
+              issue, but the touchpad can work in this method.
+            - "Method 2" option can solve the external 32k issue, but the touchpad can't work
+              in this method.
+
+        config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_NONE
+            bool "None"
+        config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT
+            bool "Method 1"
+        config ESP32_RTC_EXT_CRYST_ADDIT_CURRENT_V2
+            bool "Method 2"
+    endchoice
 
     config ESP32_RTC_CLK_CAL_CYCLES
         int "Number of cycles for RTC_SLOW_CLK calibration"
@@ -695,10 +712,11 @@ menu "ESP32-specific"
             that after enabling this Wi-Fi/Bluetooth will not work.
 
     config ESP32_COMPATIBLE_PRE_V2_1_BOOTLOADERS
-        bool "App compatible with bootloaders before IDF v2.1"
+        bool "App compatible with bootloaders before ESP-IDF v2.1"
+        select ESP32_COMPATIBLE_PRE_V3_1_BOOTLOADERS
         default n
         help
-            Bootloaders before IDF v2.1 did less initialisation of the
+            Bootloaders before ESP-IDF v2.1 did less initialisation of the
             system clock. This setting needs to be enabled to build an app
             which can be booted by these older bootloaders.
 
@@ -709,6 +727,22 @@ menu "ESP32-specific"
             from IDF v2.1 or newer.
 
             Enabling this setting adds approximately 1KB to the app's IRAM usage.
+
+    config ESP32_COMPATIBLE_PRE_V3_1_BOOTLOADERS
+        bool "App compatible with bootloader and partition table before ESP-IDF v3.1"
+        default n
+        help
+            Partition tables before ESP-IDF V3.1 do not contain an MD5 checksum
+            field, and the bootloader before ESP-IDF v3.1 cannot read a partition
+            table that contains an MD5 checksum field.
+
+            Enable this option only if your app needs to boot on a bootloader and/or
+            partition table that was generated from a version *before* ESP-IDF v3.1.
+
+            If this option and Flash Encryption are enabled at the same time, and any
+            data partitions in the partition table are marked Encrypted, then the
+            partition encrypted flag should be manually verified in the app before accessing
+            the partition (see CVE-2021-27926).
 
     config ESP32_APP_INIT_CLK
         bool

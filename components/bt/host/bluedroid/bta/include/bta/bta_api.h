@@ -176,6 +176,8 @@ typedef struct {
 
 typedef UINT16 tBTA_SEC;
 
+typedef tBTM_GET_DEV_NAME_CBACK tBTA_GET_DEV_NAME_CBACK;
+
 /* Ignore for Discoverable, Connectable, Pairable and Connectable Paired only device modes */
 #define BTA_DM_IGNORE           0x00FF
 
@@ -418,7 +420,7 @@ typedef tBTM_START_ADV_CMPL_CBACK tBTA_START_ADV_CMPL_CBACK;
 
 typedef tBTM_START_STOP_ADV_CMPL_CBACK tBTA_START_STOP_ADV_CMPL_CBACK;
 
-typedef tBTM_ADD_WHITELIST_CBACK tBTA_ADD_WHITELIST_CBACK;
+typedef tBTM_UPDATE_WHITELIST_CBACK tBTA_UPDATE_WHITELIST_CBACK;
 
 typedef tBTM_SET_PKT_DATA_LENGTH_CBACK tBTA_SET_PKT_DATA_LENGTH_CBACK;
 
@@ -1476,6 +1478,18 @@ extern void BTA_DmSetDeviceName(const char *p_name);
 
 /*******************************************************************************
 **
+** Function         BTA_DmGetDeviceName
+**
+** Description      This function gets the Bluetooth name of the local device.
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+extern void BTA_DmGetDeviceName(tBTA_GET_DEV_NAME_CBACK *p_cback);
+
+/*******************************************************************************
+**
 ** Function         BTA_DmGetRemoteName
 **
 ** Description      This function gets the peer device's Bluetooth name.
@@ -1510,6 +1524,20 @@ extern void BTA_DmConfigEir(tBTA_DM_EIR_CONF *eir_config);
 *******************************************************************************/
 void BTA_DmSetAfhChannels(const uint8_t *channels, tBTA_CMPL_CB  *set_afh_cb);
 
+#if (BTA_DM_QOS_INCLUDED == TRUE)
+/*******************************************************************************
+**
+** Function         BTA_DmSetQos
+**
+** Description      This function sets the QOS
+**
+**
+** Returns          void
+**
+*******************************************************************************/
+void BTA_DmSetQos(BD_ADDR bd_addr, UINT32 t_poll, tBTM_CMPL_CB *p_cb);
+#endif /// (BTA_DM_QOS_INCLUDED == TRUE)
+
 #if (BLE_INCLUDED == TRUE)
 /*******************************************************************************
 **
@@ -1523,7 +1551,9 @@ void BTA_DmSetAfhChannels(const uint8_t *channels, tBTA_CMPL_CB  *set_afh_cb);
 *******************************************************************************/
 void BTA_DmBleSetChannels(const uint8_t *channels, tBTA_CMPL_CB  *set_channels_cb);
 
-extern void BTA_DmUpdateWhiteList(BOOLEAN add_remove,  BD_ADDR remote_addr, tBLE_ADDR_TYPE addr_type, tBTA_ADD_WHITELIST_CBACK *add_wl_cb);
+extern void BTA_DmUpdateWhiteList(BOOLEAN add_remove,  BD_ADDR remote_addr, tBLE_ADDR_TYPE addr_type, tBTA_UPDATE_WHITELIST_CBACK *update_wl_cb);
+
+extern void BTA_DmClearWhiteList(tBTA_UPDATE_WHITELIST_CBACK *update_wl_cb);
 
 extern void BTA_DmBleReadAdvTxPower(tBTA_CMPL_CB *cmpl_cb);
 #endif  ///BLE_INCLUDED == TRUE

@@ -75,7 +75,7 @@ static esp_err_t mbc_serial_slave_setup(void* comm_info)
                 (uint32_t)comm_settings->slave_addr);
     MB_SLAVE_CHECK((comm_settings->port < UART_NUM_MAX), ESP_ERR_INVALID_ARG,
                 "mb wrong port to set = (0x%x).", (uint32_t)comm_settings->port);
-    MB_SLAVE_CHECK((comm_settings->parity <= UART_PARITY_EVEN), ESP_ERR_INVALID_ARG,
+    MB_SLAVE_CHECK((comm_settings->parity <= UART_PARITY_ODD), ESP_ERR_INVALID_ARG,
                 "mb wrong parity option = (0x%x).", (uint32_t)comm_settings->parity);
 
     // Set communication options of the controller
@@ -91,12 +91,15 @@ static esp_err_t mbc_serial_slave_start(void)
                     "Slave interface is not correctly initialized.");
     mb_slave_options_t* mbs_opts = &mbs_interface_ptr->opts;
     eMBErrorCode status = MB_EIO;
+    const mb_communication_info_t* comm_info = (mb_communication_info_t*)&mbs_opts->mbs_comm;
+
     // Initialize Modbus stack using mbcontroller parameters
-    status = eMBInit((eMBMode)mbs_opts->mbs_comm.mode,
-                         (UCHAR)mbs_opts->mbs_comm.slave_addr,
-                         (UCHAR)mbs_opts->mbs_comm.port,
-                         (ULONG)mbs_opts->mbs_comm.baudrate,
-                         (eMBParity)mbs_opts->mbs_comm.parity);
+    status = eMBInit((eMBMode)comm_info->mode,
+                         (UCHAR)comm_info->slave_addr,
+                         (UCHAR)comm_info->port,
+                         (ULONG)comm_info->baudrate,
+                         MB_PORT_PARITY_GET(comm_info->parity));
+
     MB_SLAVE_CHECK((status == MB_ENOERR), ESP_ERR_INVALID_STATE,
             "mb stack initialization failure, eMBInit() returns (0x%x).", status);
     status = eMBEnable();
@@ -485,12 +488,13 @@ esp_err_t mbc_serial_slave_create(mb_port_type_t port_type, void** handler)
     MB_SLAVE_CHECK((mbs_opts->mbs_notification_queue_handle != NULL),
             ESP_ERR_NO_MEM, "mb notify queue creation error.");
     // Create Modbus controller task
-    status = xTaskCreate((void*)&modbus_slave_task,
+    status = xTaskCreatePinnedToCore((void*)&modbus_slave_task,
                             "modbus_slave_task",
                             MB_CONTROLLER_STACK_SIZE,
                             NULL,
                             MB_CONTROLLER_PRIORITY,
-                            &mbs_opts->mbs_task_handle);
+                            &mbs_opts->mbs_task_handle,
+                            MB_PORT_TASK_AFFINITY);
     if (status != pdPASS) {
         vTaskDelete(mbs_opts->mbs_task_handle);
         MB_SLAVE_CHECK((status == pdPASS), ESP_ERR_NO_MEM,

@@ -57,8 +57,6 @@ variables:
   CI_TARGET_TEST_CONFIG_FILE: "$CI_PROJECT_DIR/tools/ci/config/target-test.yml"
   # target test repo parameters
   TEST_ENV_CONFIG_REPO: "https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/qa/ci-test-runner-configs.git"
-  CI_AUTO_TEST_SCRIPT_REPO_URL: "https://gitlab-ci-token:${BOT_TOKEN}@${CI_SERVER_HOST}:${CI_SERVER_PORT}/qa/auto_test_script.git"
-  CI_AUTO_TEST_SCRIPT_REPO_BRANCH: "ci/v3.1"
 
   # Versioned esp-idf-doc env image to use for all document building jobs
   ESP_IDF_DOC_ENV_IMAGE: "$CI_DOCKER_REGISTRY/esp-idf-doc-env:v7"
@@ -80,6 +78,8 @@ variables:
   python $SUBMODULE_FETCH_TOOL -s $SUBMODULES_TO_FETCH
 
 before_script:
+  - source tools/ci/utils.sh
+  - is_based_on_commits $REQUIRED_ANCESTOR_COMMITS
   - source tools/ci/setup_python.sh
   # apply bot filter in before script
   - *apply_bot_filter
@@ -101,6 +101,8 @@ before_script:
     GIT_SUBMODULE_STRATEGY: none
   before_script:
     - echo "Not setting up GitLab key, not fetching submodules, not applying bot filter"
+    - source tools/ci/utils.sh
+    - is_based_on_commits $REQUIRED_ANCESTOR_COMMITS
     - source tools/ci/setup_python.sh
     - source tools/ci/configure_ci_environment.sh
 
@@ -110,6 +112,8 @@ before_script:
     GIT_SUBMODULE_STRATEGY: none
   before_script:
     - echo "Not setting up GitLab key, not fetching submodules"
+    - source tools/ci/utils.sh
+    - is_based_on_commits $REQUIRED_ANCESTOR_COMMITS
     - source tools/ci/setup_python.sh
     # apply bot filter in before script
     - *apply_bot_filter
@@ -144,7 +148,12 @@ before_script:
     - macos_shell
   dependencies: []
   before_script:
+    - source tools/ci/utils.sh
+    - is_based_on_commits $REQUIRED_ANCESTOR_COMMITS
     - *apply_bot_filter
+    - export IDF_TOOLS_PATH="${HOME}/.espressif_runner_${CI_RUNNER_ID}_${CI_CONCURRENT_ID}"
+    # Clean up idf-env.json which might not be compatible with one produced by newer ESP-IDF versions
+    - rm -f ${IDF_TOOLS_PATH}/idf-env.json
     - $IDF_PATH/tools/idf_tools.py install-python-env
     # On macOS, these tools need to be installed
     - $IDF_PATH/tools/idf_tools.py --non-interactive install cmake ninja
@@ -156,6 +165,12 @@ before_script:
     # Part of tools/ci/setup_python.sh; we don't use pyenv on macOS, so can't run the rest of the script.
     - export PYTHONPATH="$IDF_PATH/tools:$IDF_PATH/tools/ci/python_packages:$PYTHONPATH"
     - *fetch_submodules
+
+default:
+  retry:
+    max: 2
+    # In case of a runner failure we could hop to another one, or a network error could go away.
+    when: runner_system_failure
 
 include:
   - '/tools/ci/config/pre_check.yml'

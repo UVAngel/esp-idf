@@ -95,6 +95,7 @@ typedef enum {
     WIFI_REASON_HANDSHAKE_TIMEOUT        = 204,
     WIFI_REASON_CONNECTION_FAIL          = 205,
     WIFI_REASON_AP_TSF_RESET             = 206,
+    WIFI_REASON_ASSOC_COMEBACK_TIME_TOO_LONG = 208,
 } wifi_err_reason_t;
 
 typedef enum {
@@ -207,7 +208,7 @@ typedef enum {
 
 /** Configuration structure for Protected Management Frame */
 typedef struct {
-    bool capable;            /**< Advertizes support for Protected Management Frame. Device will prefer to connect in PMF mode if other device also advertizes PMF capability. */
+    bool capable;            /**< Deprecated variable. Device will always connect in PMF mode if other device also advertizes PMF capability. */
     bool required;           /**< Advertizes that Protected Management Frame is required. Device will not associate to non-PMF capable devices. */
 } wifi_pmf_config_t;
 
@@ -256,7 +257,8 @@ typedef struct {
     uint32_t phy_11g:1;      /**< bit: 1 flag to identify if 11g mode is enabled or not */
     uint32_t phy_11n:1;      /**< bit: 2 flag to identify if 11n mode is enabled or not */
     uint32_t phy_lr:1;       /**< bit: 3 flag to identify if low rate is enabled or not */
-    uint32_t reserved:28;    /**< bit: 4..31 reserved */
+    uint32_t is_mesh_child:1;/**< bit: 4 flag to identify mesh child */
+    uint32_t reserved:27;    /**< bit: 5..31 reserved */
 } wifi_sta_info_t;
 
 #define ESP_WIFI_MAX_CONN_NUM  (10)       /**< max number of stations which can connect to ESP32 soft-AP */
@@ -380,6 +382,7 @@ typedef enum {
 #define WIFI_PROMIS_FILTER_MASK_MISC        (1<<3)        /**< filter the packets with type of WIFI_PKT_MISC */
 #define WIFI_PROMIS_FILTER_MASK_DATA_MPDU   (1<<4)        /**< filter the MPDU which is a kind of WIFI_PKT_DATA */
 #define WIFI_PROMIS_FILTER_MASK_DATA_AMPDU  (1<<5)        /**< filter the AMPDU which is a kind of WIFI_PKT_DATA */
+#define WIFI_PROMIS_FILTER_MASK_FCSFAIL     (1<<6)        /**< filter the FCS failed packets, do not open it in general */
 
 #define WIFI_PROMIS_CTRL_FILTER_MASK_ALL         (0xFF800000)  /**< filter all control packets */
 #define WIFI_PROMIS_CTRL_FILTER_MASK_WRAPPER     (1<<23)       /**< filter the control packets with subtype of Control Wrapper */
@@ -518,6 +521,7 @@ typedef enum {
     WIFI_EVENT_STA_CONNECTED,            /**< ESP32 station connected to AP */
     WIFI_EVENT_STA_DISCONNECTED,         /**< ESP32 station disconnected from AP */
     WIFI_EVENT_STA_AUTHMODE_CHANGE,      /**< the auth mode of AP connected by ESP32 station changed */
+    WIFI_EVENT_STA_BEACON_TIMEOUT,       /**< ESP32 station beacon timeout */
 
     WIFI_EVENT_STA_WPS_ER_SUCCESS,       /**< ESP32 station wps succeeds in enrollee mode */
     WIFI_EVENT_STA_WPS_ER_FAILED,        /**< ESP32 station wps fails in enrollee mode */
@@ -598,12 +602,14 @@ typedef struct {
 typedef struct {
     uint8_t mac[6];           /**< MAC address of the station connected to ESP32 soft-AP */
     uint8_t aid;              /**< the aid that ESP32 soft-AP gives to the station connected to  */
+    bool is_mesh_child;       /**< flag to identify mesh child */
 } wifi_event_ap_staconnected_t;
 
 /** Argument structure for WIFI_EVENT_AP_STADISCONNECTED event */
 typedef struct {
     uint8_t mac[6];           /**< MAC address of the station disconnects to ESP32 soft-AP */
     uint8_t aid;              /**< the aid that ESP32 soft-AP gave to the station disconnects to  */
+    bool is_mesh_child;       /**< flag to identify mesh child */
 } wifi_event_ap_stadisconnected_t;
 
 /** Argument structure for WIFI_EVENT_AP_PROBEREQRECVED event */

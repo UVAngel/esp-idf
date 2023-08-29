@@ -294,6 +294,9 @@ Thread-safe sockets
 
 It is possible to ``close()`` a socket from a different thread to the one that created it. The ``close()`` call will block until any function calls currently using that socket from other tasks have returned.
 
+It is, however, not possible to delete a task while it is actively waiting on ``select()`` or ``poll()`` APIs. It is always necessary that these APIs exit before destroying the task, as this might corrupt internal structures and cause subsequent crashes of the lwIP.
+(These APIs allocate globally referenced callback pointers on stack, so that when the task gets destroyed before unrolling the stack, the lwIP would still hold pointers to the deleted stack)
+
 On demand timers
 ++++++++++++++++
 
@@ -371,6 +374,7 @@ Most lwIP RAM usage is on-demand, as RAM is allocated from the heap as needed. T
 
 - Reducing :ref:`CONFIG_LWIP_MAX_SOCKETS` reduces the maximum number of sockets in the system. This will also cause TCP sockets in the ``WAIT_CLOSE`` state to be closed and recycled more rapidly (if needed to open a new socket), further reducing peak RAM usage.
 - Reducing :ref:`CONFIG_LWIP_TCPIP_RECVMBOX_SIZE`, :ref:`CONFIG_LWIP_TCP_RECVMBOX_SIZE` and :ref:`CONFIG_LWIP_UDP_RECVMBOX_SIZE` reduce memory usage at the expense of throughput, depending on usage.
+- Reducing :ref:`CONFIG_LWIP_TCP_MSL`, :ref:`CONFIG_LWIP_TCP_FIN_WAIT_TIMEOUT` reduces the maximum segment lifetime in the system. This will also cause TCP sockets in the ``TIME_WAIT``, ``FIN_WAIT_2`` state to be closed and recycled more rapidly
 
 If using Wi-Fi, please also refer to :ref:`wifi-buffer-usage`.
 

@@ -36,7 +36,6 @@
 #include "osi/fixed_queue.h"
 #include "osi/alarm.h"
 #include "stack/btm_ble_api.h"
-#include "esp_bt.h"
 
 #if (BT_USE_TRACES == TRUE && BT_TRACE_VERBOSE == FALSE)
 /* needed for sprintf() */
@@ -1145,7 +1144,7 @@ tBTM_STATUS BTM_SecBondByTransport (BD_ADDR bd_addr, tBT_TRANSPORT transport,
 {
 #if (BLE_INCLUDED == TRUE)
     tBT_DEVICE_TYPE     dev_type;
-    tBLE_ADDR_TYPE      addr_type;
+    tBLE_ADDR_TYPE      addr_type = 0;
 
     BTM_ReadDevInfo(bd_addr, &dev_type, &addr_type);
     /* LE device, do SMP pairing */
@@ -1522,8 +1521,8 @@ void BTM_ConfirmReqReply(tBTM_STATUS res, BD_ADDR bd_addr)
         if (res == BTM_SUCCESS) {
             if ((p_dev_rec = btm_find_dev (bd_addr)) != NULL) {
                 p_dev_rec->sec_flags |= BTM_SEC_LINK_KEY_AUTHED;
+                p_dev_rec->sec_flags |= BTM_SEC_16_DIGIT_PIN_AUTHED;
             }
-            p_dev_rec->sec_flags |= BTM_SEC_16_DIGIT_PIN_AUTHED;
         }
 
         btsnd_hcic_user_conf_reply (bd_addr, TRUE);
@@ -2627,15 +2626,6 @@ void btm_sec_conn_req (UINT8 *bda, UINT8 *dc)
     /* Some device may request a connection before we are done with the HCI_Reset sequence */
     if (!controller_get_interface()->get_is_ready()) {
         BTM_TRACE_ERROR ("Security Manager: connect request when device not ready\n");
-        btsnd_hcic_reject_conn (bda, HCI_ERR_HOST_REJECT_DEVICE);
-        return;
-    }
-
-    /* Check if peer device's and our BD_ADDR is same or not. It
-       should be different to avoid 'Impersonation in the Pin Pairing
-       Protocol' (CVE-2020-26555) vulnerability. */
-    if (memcmp(bda, esp_bt_get_mac(), sizeof (BD_ADDR)) == 0) {
-        BTM_TRACE_ERROR ("Security Manager: connect request from device with same BD_ADDR\n");
         btsnd_hcic_reject_conn (bda, HCI_ERR_HOST_REJECT_DEVICE);
         return;
     }
@@ -4577,7 +4567,9 @@ void btm_sec_disconnected (UINT16 handle, UINT8 reason)
     /* If page was delayed for disc complete, can do it now */
     btm_cb.discing = FALSE;
 
+#if (CLASSIC_BT_INCLUDED == TRUE)
     btm_acl_resubmit_page();
+#endif
 
     if (!p_dev_rec) {
         return;
@@ -5177,6 +5169,15 @@ static tBTM_STATUS btm_sec_execute_procedure (tBTM_SEC_DEV_REC *p_dev_rec)
         }
         return (BTM_CMD_STARTED);
     }
+
+#if (CLASSIC_BT_INCLUDED == TRUE)
+    tACL_CONN *p_acl_cb = btm_handle_to_acl(p_dev_rec->hci_handle);
+    /* If esp32 has not authenticated peer deivce yet, just remove the flag of BTM_SEC_AUTHENTICATED. */
+    if ((BTM_BothEndsSupportSecureConnections(p_acl_cb->remote_addr) == 0) &&
+        ((p_acl_cb->legacy_auth_state & BTM_ACL_LEGACY_AUTH_SELF) == 0)) {
+        p_dev_rec->sec_flags &= ~BTM_SEC_AUTHENTICATED;
+    }
+#endif
 
     /* If connection is not authenticated and authentication is required */
     /* start authentication and return PENDING to the caller */

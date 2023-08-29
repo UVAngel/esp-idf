@@ -319,9 +319,6 @@ endmenu  # Wi-Fi
 menu "PHY"
 
     config ESP32_PHY_CALIBRATION_AND_DATA_STORAGE
-        # ToDo: remove target dependency once NVS and PHY partial calibration are supported
-        # also re-enable the <RF_calibration> entry in docs/../api-guides/index.rst
-        depends on IDF_TARGET_ESP32
         bool "Store phy calibration data in NVS"
         default y
         help
@@ -349,6 +346,16 @@ menu "PHY"
 
             If this option is not enabled, PHY init data will be embedded
             into the application binary.
+
+            If unsure, choose 'n'.
+
+    config ESP32_PHY_DEFAULT_INIT_IF_INVALID
+        bool "Reset default PHY init data if invalid"
+        default n
+        depends on ESP32_PHY_INIT_DATA_IN_PARTITION
+        help
+            If enabled, PHY init data will be restored to default if
+            it cannot be verified successfully to avoid endless bootloops.
 
             If unsure, choose 'n'.
 

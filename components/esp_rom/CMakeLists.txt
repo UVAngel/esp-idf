@@ -1,6 +1,8 @@
 idf_build_get_property(target IDF_TARGET)
 
-idf_component_register(INCLUDE_DIRS include)
+idf_component_register(SRCS "patches/esp_rom_longjmp.S"
+                       INCLUDE_DIRS include "${target}"
+                       PRIV_REQUIRES soc)
 
 if(BOOTLOADER_BUILD)
     set(scripts
@@ -10,6 +12,12 @@ if(BOOTLOADER_BUILD)
         )
     if(target STREQUAL "esp32s2")
         list(APPEND scripts "esp32s2/ld/esp32s2.rom.spiflash.ld")
+    endif()
+
+    if(target STREQUAL "esp32")
+        if(NOT CONFIG_SPI_FLASH_ROM_DRIVER_PATCH)
+            list(APPEND scripts "esp32/ld/esp32.rom.spiflash.ld")
+        endif()
     endif()
 
     if(CONFIG_ESP32_REV_MIN_3)
@@ -64,4 +72,5 @@ else() # Regular app build
 
     target_linker_script(${COMPONENT_LIB} INTERFACE "${scripts}")
 
+    target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=longjmp")
 endif()

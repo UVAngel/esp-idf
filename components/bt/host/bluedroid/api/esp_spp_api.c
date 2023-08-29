@@ -51,7 +51,7 @@ esp_err_t esp_spp_init(esp_spp_mode_t mode)
     msg.act = BTC_SPP_ACT_INIT;
 
     arg.init.mode = mode;
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_spp_deinit(void)
@@ -64,7 +64,7 @@ esp_err_t esp_spp_deinit(void)
     msg.pid = BTC_PID_SPP;
     msg.act = BTC_SPP_ACT_UNINIT;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 
@@ -85,7 +85,8 @@ esp_err_t esp_spp_start_discovery(esp_bd_addr_t bd_addr)
     arg.start_discovery.num_uuid = 1;
     arg.start_discovery.p_uuid_list = &sdp_uuid;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), btc_spp_arg_deep_copy) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t),
+                btc_spp_arg_deep_copy, btc_spp_arg_deep_free) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_spp_connect(esp_spp_sec_t sec_mask,
@@ -108,7 +109,7 @@ esp_err_t esp_spp_connect(esp_spp_sec_t sec_mask,
     arg.connect.remote_scn = remote_scn;
     memcpy(arg.connect.peer_bd_addr, peer_bd_addr, ESP_BD_ADDR_LEN);
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_spp_disconnect(uint32_t handle)
@@ -123,7 +124,7 @@ esp_err_t esp_spp_disconnect(uint32_t handle)
 
     arg.disconnect.handle = handle;
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_spp_start_srv(esp_spp_sec_t sec_mask,
@@ -133,7 +134,8 @@ esp_err_t esp_spp_start_srv(esp_spp_sec_t sec_mask,
     btc_spp_args_t arg;
     ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
 
-    if (strlen(name) > ESP_SPP_SERVER_NAME_MAX) {
+    if (name == NULL || strlen(name) > ESP_SPP_SERVER_NAME_MAX) {
+        LOG_ERROR("Invalid server name!\n");
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -151,23 +153,10 @@ esp_err_t esp_spp_start_srv(esp_spp_sec_t sec_mask,
     arg.start_srv.max_session = ESP_SPP_MAX_SESSION;
     strcpy(arg.start_srv.name, name);
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
 }
 
 esp_err_t esp_spp_stop_srv(void)
-{
-    btc_msg_t msg;
-    ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
-
-    msg.sig = BTC_SIG_API_CALL;
-    msg.pid = BTC_PID_SPP;
-    msg.act = BTC_SPP_ACT_STOP_SRV;
-
-    return (btc_transfer_context(&msg, NULL, sizeof(btc_spp_args_t), NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
-}
-
-
-esp_err_t esp_spp_write(uint32_t handle, int len, uint8_t *p_data)
 {
     btc_msg_t msg;
     btc_spp_args_t arg;
@@ -175,13 +164,42 @@ esp_err_t esp_spp_write(uint32_t handle, int len, uint8_t *p_data)
 
     msg.sig = BTC_SIG_API_CALL;
     msg.pid = BTC_PID_SPP;
-    msg.act = BTC_SPP_ACT_WRITE;
+    msg.act = BTC_SPP_ACT_STOP_SRV;
+    arg.stop_srv.scn = BTC_SPP_INVALID_SCN;
 
-    arg.write.handle = handle;
-    arg.write.len = len;
-    arg.write.p_data = p_data;
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+}
 
-    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), btc_spp_arg_deep_copy) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+esp_err_t esp_spp_stop_srv_scn(uint8_t scn)
+{
+    btc_msg_t msg;
+    btc_spp_args_t arg;
+    ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    if ((scn == 0) || (scn >= PORT_MAX_RFC_PORTS)) {
+        LOG_ERROR("Invalid SCN!\n");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    msg.sig = BTC_SIG_API_CALL;
+    msg.pid = BTC_PID_SPP;
+    msg.act = BTC_SPP_ACT_STOP_SRV;
+    arg.stop_srv.scn = scn;
+
+    return (btc_transfer_context(&msg, &arg, sizeof(btc_spp_args_t), NULL, NULL) == BT_STATUS_SUCCESS ? ESP_OK : ESP_FAIL);
+}
+
+
+esp_err_t esp_spp_write(uint32_t handle, int len, uint8_t *p_data)
+{
+    ESP_BLUEDROID_STATUS_CHECK(ESP_BLUEDROID_STATUS_ENABLED);
+
+    if (len <= 0 || p_data == NULL) {
+        LOG_ERROR("Invalid data or len!\n");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    return spp_send_data_to_btc(handle, len, p_data, ESP_SPP_MODE_CB);
 }
 
 esp_err_t esp_spp_vfs_register(void)

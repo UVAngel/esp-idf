@@ -82,6 +82,12 @@ void esp_clk_init(void)
     RESET_REASON rst_reas;
     rst_reas = rtc_get_reset_reason(0);
     if (rst_reas == POWERON_RESET) {
+        /* Ocode calibration will switch to XTAL frequency, need to wait for UART FIFO
+         * to be empty, to avoid garbled output.
+         */
+        if (CONFIG_ESP_CONSOLE_UART_NUM >= 0) {
+            uart_tx_wait_idle(CONFIG_ESP_CONSOLE_UART_NUM);
+        }
         cfg.cali_ocode = 1;
     }
     rtc_init(cfg);
@@ -229,9 +235,10 @@ void esp_perip_clk_init(void)
     /* For reason that only reset CPU, do not disable the clocks
      * that have been enabled before reset.
      */
-    if (rst_reas[0] >= TG0WDT_CPU_RESET &&
-            rst_reas[0] <= TG0WDT_CPU_RESET &&
-            rst_reas[0] != RTCWDT_BROWN_OUT_RESET) {
+    if (rst_reas[0] == TG0WDT_CPU_RESET ||
+            rst_reas[0] == RTC_SW_CPU_RESET ||
+            rst_reas[0] == RTCWDT_CPU_RESET ||
+            rst_reas[0] == TG1WDT_CPU_RESET) {
         common_perip_clk = ~DPORT_READ_PERI_REG(DPORT_PERIP_CLK_EN_REG);
         hwcrypto_perip_clk = ~DPORT_READ_PERI_REG(DPORT_PERIP_CLK_EN1_REG);
         wifi_bt_sdio_clk = ~DPORT_READ_PERI_REG(DPORT_WIFI_CLK_EN_REG);

@@ -68,6 +68,8 @@ static void bta_gattc_cong_cback (UINT16 conn_id, BOOLEAN congested);
 static void bta_gattc_req_cback (UINT16 conn_id, UINT32 trans_id, tGATTS_REQ_TYPE type, tGATTS_DATA *p_data);
 static tBTA_GATTC_FIND_SERVICE_CB bta_gattc_register_service_change_notify(UINT16 conn_id, BD_ADDR remote_bda);
 
+extern void btc_gattc_congest_callback(tBTA_GATTC *param);
+
 static const tGATT_CBACK bta_gattc_cl_cback = {
     bta_gattc_conn_cback,
     bta_gattc_cmpl_cback,
@@ -488,9 +490,14 @@ void bta_gattc_open(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
 {
     tBTA_GATTC_DATA gattc_data;
     BOOLEAN found_app = FALSE;
+    tGATT_TCB *p_tcb;
 
-    tGATT_TCB *p_tcb = gatt_find_tcb_by_addr(p_data->api_conn.remote_bda, BT_TRANSPORT_LE);
-    if(p_tcb && p_clcb && p_data) {
+    if (!p_clcb || !p_data) {
+        return;
+    }
+
+    p_tcb = gatt_find_tcb_by_addr(p_data->api_conn.remote_bda, BT_TRANSPORT_LE);
+    if(p_tcb) {
         found_app = gatt_find_specific_app_in_hold_link(p_tcb, p_clcb->p_rcb->client_if);
     }
     /* open/hold a connection */
@@ -1157,7 +1164,7 @@ void bta_gattc_read_multi(tBTA_GATTC_CLCB *p_clcb, tBTA_GATTC_DATA *p_data)
             read_param.read_multiple.num_handles = p_data->api_read_multi.num_attr;
             read_param.read_multiple.auth_req = p_data->api_read_multi.auth_req;
             memcpy(&read_param.read_multiple.handles, p_data->api_read_multi.handles,
-                                        sizeof(UINT16) * p_data->api_read_multi.num_attr);
+                    sizeof(UINT16) * p_data->api_read_multi.num_attr);
 
             status = GATTC_Read(p_clcb->bta_conn_id, GATT_READ_MULTIPLE, &read_param);
         }
@@ -2164,17 +2171,10 @@ static void bta_gattc_cmpl_sendmsg(UINT16 conn_id, tGATTC_OPTYPE op,
 ********************************************************************************/
 static void bta_gattc_cong_cback (UINT16 conn_id, BOOLEAN congested)
 {
-    tBTA_GATTC_CLCB *p_clcb;
     tBTA_GATTC cb_data;
-
-    if ((p_clcb = bta_gattc_find_clcb_by_conn_id(conn_id)) != NULL) {
-        if (p_clcb->p_rcb->p_cback) {
-            cb_data.congest.conn_id = conn_id;
-            cb_data.congest.congested = congested;
-
-            (*p_clcb->p_rcb->p_cback)(BTA_GATTC_CONGEST_EVT, &cb_data);
-        }
-    }
+    cb_data.congest.conn_id = conn_id;
+    cb_data.congest.congested = congested;
+    btc_gattc_congest_callback(&cb_data);
 }
 
 /*******************************************************************************

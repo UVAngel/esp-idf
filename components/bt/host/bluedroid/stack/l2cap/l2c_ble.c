@@ -98,6 +98,8 @@ BOOLEAN L2CA_UpdateBleConnParams (BD_ADDR rem_bda, UINT16 min_int, UINT16 max_in
 {
     tL2C_LCB            *p_lcb;
     tACL_CONN           *p_acl_cb = btm_bda_to_acl(rem_bda, BT_TRANSPORT_LE);
+    UINT8               status = HCI_SUCCESS;
+    BOOLEAN             need_cb = false;
 
     /* See if we have a link control block for the remote device */
     p_lcb = l2cu_find_lcb_by_bd_addr (rem_bda, BT_TRANSPORT_LE);
@@ -117,19 +119,29 @@ BOOLEAN L2CA_UpdateBleConnParams (BD_ADDR rem_bda, UINT16 min_int, UINT16 max_in
         return (FALSE);
     }
 
+    /* Check whether the request conn params is already set */
+    if ((max_int == p_lcb->current_used_conn_interval) && (latency == p_lcb->current_used_conn_latency) &&
+        (timeout == p_lcb->current_used_conn_timeout)) {
+        status = HCI_SUCCESS;
+        need_cb = true;
+        L2CAP_TRACE_WARNING("%s connection parameter already set", __func__);
+    }
+
     if (p_lcb->conn_update_mask & L2C_BLE_UPDATE_PARAM_FULL){
-        UINT8 status = HCI_ERR_ILLEGAL_COMMAND;
+        status = HCI_ERR_ILLEGAL_COMMAND;
+        need_cb = true;
         L2CAP_TRACE_ERROR("There are two connection parameter requests that are being updated, please try later ");
-        if (conn_param_update_cb.update_conn_param_cb != NULL) {
-            tBTM_LE_UPDATE_CONN_PRAMS update_param;
-            update_param.max_conn_int = max_int;
-            update_param.min_conn_int = min_int;
-            update_param.conn_int = p_lcb->current_used_conn_interval;
-            update_param.slave_latency = p_lcb->current_used_conn_latency;
-            update_param.supervision_tout = p_lcb->current_used_conn_timeout;
-            (conn_param_update_cb.update_conn_param_cb)(status, p_lcb->remote_bd_addr, &update_param);
-        }
-        return (FALSE);
+    }
+
+    if ((need_cb == TRUE) && (conn_param_update_cb.update_conn_param_cb != NULL)) {
+        tBTM_LE_UPDATE_CONN_PRAMS update_param;
+        update_param.max_conn_int = max_int;
+        update_param.min_conn_int = min_int;
+        update_param.conn_int = p_lcb->current_used_conn_interval;
+        update_param.slave_latency = p_lcb->current_used_conn_latency;
+        update_param.supervision_tout = p_lcb->current_used_conn_timeout;
+        (conn_param_update_cb.update_conn_param_cb)(status, p_lcb->remote_bd_addr, &update_param);
+        return (status == HCI_SUCCESS);
     }
 
     p_lcb->waiting_update_conn_min_interval = min_int;
@@ -245,7 +257,7 @@ void l2cble_notify_le_connection (BD_ADDR bda)
             tBTM_BLE_INQ_CB *p_cb = &btm_cb.ble_ctr_cb.inq_var;
             if(p_cb) {
                 p_cb->adv_mode = BTM_BLE_ADV_DISABLE;
-                p_cb->state = BTM_BLE_STOP_ADV;
+                p_cb->state &= ~BTM_BLE_ADVERTISING;
             }
         }
         /* update link status */
@@ -1113,6 +1125,8 @@ void l2cble_update_data_length(tL2C_LCB *p_lcb)
 void l2cble_process_data_length_change_event(UINT16 handle, UINT16 tx_data_len, UINT16 rx_data_len)
 {
     tL2C_LCB *p_lcb = l2cu_find_lcb_by_handle(handle);
+    tACL_CONN *p_acl = btm_handle_to_acl(handle);
+    tBTM_LE_SET_PKT_DATA_LENGTH_PARAMS data_length_params;
 
     L2CAP_TRACE_DEBUG("%s TX data len = %d", __FUNCTION__, tx_data_len);
     if (p_lcb == NULL) {
@@ -1123,13 +1137,32 @@ void l2cble_process_data_length_change_event(UINT16 handle, UINT16 tx_data_len, 
         p_lcb->tx_data_len = tx_data_len;
     }
 
-    tACL_CONN *p_acl = btm_handle_to_acl(handle);
-    if (p_acl != NULL && p_acl->p_set_pkt_data_cback){
-       tBTM_LE_SET_PKT_DATA_LENGTH_PARAMS data_length_params;
-       data_length_params.rx_len = tx_data_len;
-       data_length_params.tx_len = rx_data_len;
-       p_acl->data_length_params = data_length_params;
-       (*p_acl->p_set_pkt_data_cback)(BTM_SUCCESS, &data_length_params);
+    data_length_params.rx_len = rx_data_len;
+    data_length_params.tx_len = tx_data_len;
+
+    if(p_acl) {
+        p_acl->data_length_params = data_length_params;
+        if (p_acl->p_set_pkt_data_cback) {
+            (*p_acl->p_set_pkt_data_cback)(BTM_SUCCESS, &data_length_params);
+        }
+
+        p_acl->data_len_updating = false;
+        if(p_acl->data_len_waiting) {
+            p_acl->data_len_waiting = false;
+            p_acl->p_set_pkt_data_cback = p_acl->p_set_data_len_cback_waiting;
+            p_acl->p_set_data_len_cback_waiting = NULL;
+            // if value is same, triger callback directly
+            if(p_acl->tx_len_waiting == p_acl->data_length_params.tx_len) {
+                if(p_acl->p_set_pkt_data_cback) {
+                    (*p_acl->p_set_pkt_data_cback)(BTM_SUCCESS, &p_acl->data_length_params);
+                }
+                return;
+            }
+            p_acl->data_len_updating = true;
+            /* always set the TxTime to be max, as controller does not care for now */
+            btsnd_hcic_ble_set_data_length(handle, p_acl->tx_len_waiting,
+                                            BTM_BLE_DATA_TX_TIME_MAX);
+        }
     }
 }
 

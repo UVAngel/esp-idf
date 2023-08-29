@@ -33,6 +33,11 @@ void bootloader_flash_update_id(void)
     g_rom_flashchip.device_id = bootloader_read_flash_id();
 }
 
+void bootloader_flash_update_size(uint32_t size)
+{
+    g_rom_flashchip.chip_size = size;
+}
+
 void IRAM_ATTR bootloader_flash_cs_timing_config(void)
 {
     SET_PERI_REG_MASK(SPI_USER_REG(0), SPI_CS_HOLD_M | SPI_CS_SETUP_M);
@@ -173,9 +178,9 @@ int bootloader_flash_get_wp_pin(void)
     uint8_t chip_ver;
     uint32_t pkg_ver = REG_GET_FIELD(EFUSE_BLK0_RDATA3_REG, EFUSE_RD_CHIP_VER_PKG);
     switch(pkg_ver) {
+    case EFUSE_RD_CHIP_VER_PKG_ESP32U4WDH:
     case EFUSE_RD_CHIP_VER_PKG_ESP32D2WDQ5:
         return ESP32_D2WD_WP_GPIO;
-    case EFUSE_RD_CHIP_VER_PKG_ESP32PICOD2:
     case EFUSE_RD_CHIP_VER_PKG_ESP32PICOD4:
         /* Same package IDs are used for ESP32-PICO-V3 and ESP32-PICO-D4, silicon version differentiates */
         chip_ver = bootloader_common_get_chip_revision();

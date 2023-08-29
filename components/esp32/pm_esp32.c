@@ -68,8 +68,6 @@ static portMUX_TYPE s_switch_lock = portMUX_INITIALIZER_UNLOCKED;
 static pm_mode_t s_mode = PM_MODE_CPU_MAX;
 /* True when switch is in progress */
 static volatile bool s_is_switching;
-/* When switch is in progress, this is the mode we are switching into */
-static pm_mode_t s_new_mode = PM_MODE_CPU_MAX;
 /* Number of times each mode was locked */
 static size_t s_mode_lock_counts[PM_MODE_COUNT];
 /* Bit mask of locked modes. BIT(i) is set iff s_mode_lock_counts[i] > 0. */
@@ -237,6 +235,23 @@ esp_err_t esp_pm_configure(const void* vconfig)
     return ESP_OK;
 }
 
+esp_err_t esp_pm_get_configuration(void* vconfig)
+{
+    if (vconfig == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_pm_config_esp32_t* config = (esp_pm_config_esp32_t*) vconfig;
+
+    portENTER_CRITICAL(&s_switch_lock);
+    config->light_sleep_enable = s_light_sleep_en;
+    config->max_freq_mhz = s_cpu_freq_by_mode[PM_MODE_CPU_MAX].freq_mhz;
+    config->min_freq_mhz = s_cpu_freq_by_mode[PM_MODE_APB_MIN].freq_mhz;
+    portEXIT_CRITICAL(&s_switch_lock);
+
+    return ESP_OK;
+}
+
 static pm_mode_t IRAM_ATTR get_lowest_allowed_mode(void)
 {
     /* TODO: optimize using ffs/clz */
@@ -284,7 +299,7 @@ void IRAM_ATTR esp_pm_impl_switch_mode(pm_mode_t mode,
 #endif // WITH_PROFILING
     }
     portEXIT_CRITICAL_SAFE(&s_switch_lock);
-    if (need_switch && new_mode != s_mode) {
+    if (need_switch) {
         do_switch(new_mode);
     }
 }
@@ -355,16 +370,15 @@ static void IRAM_ATTR do_switch(pm_mode_t new_mode)
         if (!s_is_switching) {
             break;
         }
-        if (s_new_mode <= new_mode) {
-            portEXIT_CRITICAL_ISR(&s_switch_lock);
-            return;
-        }
         if (s_need_update_ccompare[core_id]) {
             s_need_update_ccompare[core_id] = false;
         }
         portEXIT_CRITICAL_ISR(&s_switch_lock);
     } while (true);
-    s_new_mode = new_mode;
+    if (new_mode == s_mode) {
+        portEXIT_CRITICAL_ISR(&s_switch_lock);
+        return;
+    }
     s_is_switching = true;
     bool config_changed = s_config_changed;
     s_config_changed = false;
@@ -478,8 +492,8 @@ void esp_pm_impl_waiti(void)
          * the lock so that vApplicationSleep can attempt to enter light sleep.
          */
         esp_pm_impl_idle_hook();
-        s_skipped_light_sleep[core_id] = false;
     }
+    s_skipped_light_sleep[core_id] = true;
 #else
     asm("waiti 0");
 #endif // CONFIG_FREERTOS_USE_TICKLESS_IDLE

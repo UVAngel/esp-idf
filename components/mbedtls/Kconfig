@@ -15,17 +15,22 @@ menu "mbedTLS"
               mbedtls_platform_set_calloc_free() function
             - Internal IRAM memory wherever applicable else internal DRAM
 
-            Recommended mode here is always internal, since that is most preferred
+            Recommended mode here is always internal (*), since that is most preferred
             from security perspective. But if application requirement does not
             allow sufficient free internal memory then alternate mode can be
             selected.
+
+            (*) In case of ESP32-S2, hardware allows encryption of external
+            SPIRAM contents provided hardware flash encryption feature is enabled.
+            In that case, using external SPIRAM allocation strategy is also safe choice
+            from security perspective.
 
         config MBEDTLS_INTERNAL_MEM_ALLOC
             bool "Internal memory"
 
         config MBEDTLS_EXTERNAL_MEM_ALLOC
             bool "External SPIRAM"
-            depends on ESP32_SPIRAM_SUPPORT
+            depends on SPIRAM_USE_CAPS_ALLOC || SPIRAM_USE_MALLOC
 
         config MBEDTLS_DEFAULT_MEM_ALLOC
             bool "Default alloc mode"
@@ -115,16 +120,26 @@ menu "mbedTLS"
             Free peer certificate after its usage in handshake process.
 
     config MBEDTLS_DYNAMIC_FREE_CONFIG_DATA
-        bool "Free certificate, key and DHM data after its usage"
+        bool "Free private key and DHM data after its usage"
         default n
         depends on MBEDTLS_DYNAMIC_BUFFER
         help
-            Free certificate, private key and DHM data after its usage in handshake process.
+            Free private key and DHM data after its usage in handshake process.
 
             The option will decrease heap cost when handshake, but also lead to problem:
 
             Becasue all certificate, private key and DHM data are freed so users should register
             certificate and private key to ssl config object again.
+
+    config MBEDTLS_DYNAMIC_FREE_CA_CERT
+        bool "Free SSL CA certificate after its usage"
+        default y
+        depends on MBEDTLS_DYNAMIC_FREE_CONFIG_DATA
+        help
+            Free CA certificate after its usage in the handshake process.
+            This option will decrease the heap footprint for the TLS handshake, but may lead to a problem:
+            If the respective ssl object needs to perform the TLS handshake again,
+            the CA certificate should once again be registered to the ssl object.
 
     config MBEDTLS_DEBUG
         bool "Enable mbedTLS debugging"

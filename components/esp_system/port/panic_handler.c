@@ -49,11 +49,13 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
-#include "panic_internal.h"
+#include "esp_private/panic_internal.h"
 
 extern int _invalid_pc_placeholder;
 
-extern void esp_panic_handler(panic_info_t*);
+extern void esp_panic_handler_reconfigure_wdts(void);
+
+extern void esp_panic_handler(panic_info_t *);
 
 static wdt_hal_context_t wdt0_context = {.inst = WDT_MWDT0, .mwdt_dev = &TIMERG0};
 
@@ -370,7 +372,7 @@ static inline void print_memprot_err_details(const void *f)
     mem_type_prot_t mem_type = esp_memprot_get_intr_memtype();
     esp_memprot_get_fault_status( mem_type, &fault_addr, &op_type, &op_subtype );
 
-    char *operation_type = "Write";
+    const char *operation_type = "Write";
     if ( op_type == 0 ) {
         operation_type = (mem_type == MEMPROT_IRAM0 && op_subtype == 0) ? "Instruction fetch" : "Read";
     }
@@ -388,6 +390,7 @@ static void frame_to_panic_info(XtExcFrame *frame, panic_info_t *info, bool pseu
     info->exception = PANIC_EXCEPTION_FAULT;
     info->details = NULL;
 
+    info->pseudo_excause = pseudo_excause;
     if (pseudo_excause) {
         if (frame->exccause == PANIC_RSN_INTWDT_CPU0) {
             info->core = 0;
@@ -498,6 +501,9 @@ static void panic_handler(XtExcFrame *frame, bool pseudo_excause)
             }
         }
     }
+
+    // Need to reconfigure WDTs before we stall any other CPU
+    esp_panic_handler_reconfigure_wdts();
 
     ets_delay_us(1);
     SOC_HAL_STALL_OTHER_CORES();

@@ -643,7 +643,7 @@ static esp_err_t esp_netif_start_api(esp_netif_api_msg_t *msg)
         netif_set_up(p_netif);
     }
     if (esp_netif->flags & ESP_NETIF_DHCP_SERVER) {
-        if (esp_netif->dhcps_status != ESP_NETIF_DHCP_STARTED) {
+        if (esp_netif->dhcps_status == ESP_NETIF_DHCP_INIT) {
             if (p_netif != NULL && netif_is_up(p_netif)) {
                 esp_netif_ip_info_t *default_ip = esp_netif->ip_info;
                 ip4_addr_t lwip_ip;
@@ -662,9 +662,11 @@ static esp_err_t esp_netif_start_api(esp_netif_api_msg_t *msg)
                 esp_netif->dhcps_status = ESP_NETIF_DHCP_INIT;
                 return ESP_OK;
             }
+        } else if (esp_netif->dhcps_status == ESP_NETIF_DHCP_STARTED) {
+            ESP_LOGD(TAG, "DHCP server already started");
+            return ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED;
         }
-        ESP_LOGD(TAG, "DHCP server already started");
-        return ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED;
+        return ESP_OK;
     } else if (esp_netif->flags & ESP_NETIF_DHCP_CLIENT) {
         if (esp_netif->dhcpc_status != ESP_NETIF_DHCP_STARTED) {
             if (p_netif != NULL) {
@@ -1368,8 +1370,9 @@ static esp_err_t esp_netif_set_dns_info_api(esp_netif_api_msg_t *msg)
     ESP_LOGD(TAG, "set dns if=%p type=%d dns=%x", esp_netif, type, dns->ip.u_addr.ip4.addr);
 
     ip_addr_t *lwip_ip = (ip_addr_t*)&dns->ip;
-    lwip_ip->type = IPADDR_TYPE_V4;
-
+    if (!IP_IS_V4(lwip_ip) && !IP_IS_V6(lwip_ip)) {
+        lwip_ip->type = IPADDR_TYPE_V4;
+    }
     if (esp_netif->flags & ESP_NETIF_DHCP_SERVER) {
         // if DHCP server configured to set DNS in dhcps API
         if (type != ESP_NETIF_DNS_MAIN) {

@@ -6,9 +6,7 @@ Get Started
 
 .. Please keep README.md in sync with these instructions.
 
-This document is intended to help you set up the software development environment for the hardware based on the {IDF_TARGET_NAME} chip by Espressif.
-
-After that, a simple example will show you how to use ESP-IDF (Espressif IoT Development Framework) for menu configuration, then for building and flashing firmware onto an {IDF_TARGET_NAME} board.
+This document is intended to help you set up the software development environment for the hardware based on the {IDF_TARGET_NAME} chip by Espressif. After that, a simple example will show you how to use ESP-IDF (Espressif IoT Development Framework) for menu configuration, then for building and flashing firmware onto an {IDF_TARGET_NAME} board.
 
 .. include-build-file:: inc/version-note.inc
 
@@ -24,7 +22,6 @@ Introduction
     * Dual high performance cores
     * Ultra Low Power co-processor
     * Multiple peripherals
-
 
 .. only:: esp32s2
 
@@ -59,7 +56,7 @@ You have a choice to either download and install the following software manually
 **or** get through the onboarding process using the following official plugins for integrated development environments (IDE) described in separate documents
 
     * `Eclipse Plugin <https://github.com/espressif/idf-eclipse-plugin>`_ (`installation link <https://github.com/espressif/idf-eclipse-plugin#installing-idf-plugin-using-update-site-url>`_)
-    * `VS Code Extension <https://github.com/espressif/vscode-esp-idf-extension>`_ (`onboarding <https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/ONBOARDING.md>`_)
+    * `VS Code Extension <https://github.com/espressif/vscode-esp-idf-extension>`_ (`setup <https://github.com/espressif/vscode-esp-idf-extension/blob/master/docs/tutorial/install.md>`_)
 
 .. figure:: ../../_static/what-you-need.png
     :align: center
@@ -91,6 +88,8 @@ If you have one of {IDF_TARGET_NAME} development boards listed below, you can cl
         :maxdepth: 1
 
         ESP32-S2-Saola-1 <../hw-reference/esp32s2/user-guide-saola-1-v1.2>
+        ESP32-S2-DevKitM-1(U) <../hw-reference/esp32s2/user-guide-devkitm-1-v1>
+        ESP32-S2-DevKitC-1 <../hw-reference/esp32s2/user-guide-s2-devkitc-1>
         ESP32-S2-Kaluga-Kit <../hw-reference/esp32s2/user-guide-esp32-s2-kaluga-1-kit>
 
 .. _get-started-step-by-step:
@@ -202,14 +201,14 @@ If you want to install the tools without the help of ESP-IDF Tools Installer, op
 .. code-block:: batch
 
     cd %userprofile%\esp\esp-idf
-    install.bat
+    install.bat {IDF_TARGET_PATH_NAME}
 
 or with Windows PowerShell
 
 .. code-block:: powershell
 
     cd ~/esp/esp-idf
-    ./install.ps1
+    ./install.ps1 {IDF_TARGET_PATH_NAME}
 
 Linux and macOS
 ~~~~~~~~~~~~~~~
@@ -217,6 +216,46 @@ Linux and macOS
 .. code-block:: bash
 
     cd ~/esp/esp-idf
+    ./install.sh {IDF_TARGET_PATH_NAME}
+
+or with Fish shell
+
+.. code-block:: fish
+
+    cd ~/esp/esp-idf
+    ./install.fish {IDF_TARGET_PATH_NAME}
+
+.. note::
+    To install tools for multiple targets you can specify those targets at once. For example: ``./install.sh esp32,esp32s2``.
+    To install tools for all supported targets, run the script without specifying targets ``./install.sh`` or use ``./install.sh all``.
+
+Alternative File Downloads
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The tools installer downloads a number of files attached to GitHub Releases. If accessing GitHub is slow then it is possible to set an environment variable to prefer Espressif's download server for GitHub asset downloads.
+
+.. note:: This setting only controls individual tools downloaded from GitHub releases, it doesn't change the URLs used to access any Git repositories.
+
+Windows
+-------
+
+To prefer the Espressif download server when running the ESP-IDF Tools Installer or installing tools from the command line, open the System control panel, then click on Advanced Settings. Add a new Environment Variable (of type either User or System) with the name ``IDF_GITHUB_ASSETS`` and value ``dl.espressif.com/github_assets``. Click OK once done.
+
+If the command line window or ESP-IDF Tools Installer window was already open before you added the new environment variable, you will need to close and reopen it.
+
+While this environment variable is still set, the ESP-IDF Tools Installer and the command line installer will prefer the Espressif download server.
+
+.. Once the ESP-IDF Tools Installer binary is updated to include the checkbox, the above can be rewritten to refer to it
+
+Linux and macOS
+---------------
+
+To prefer the Espressif download server when installing tools, use the following sequence of commands when running ``install.sh``:
+
+.. code-block:: bash
+
+    cd ~/esp/esp-idf
+    export IDF_GITHUB_ASSETS="dl.espressif.com/github_assets"
     ./install.sh
 
 Customizing the tools installation path
@@ -301,9 +340,7 @@ Windows
     cd %userprofile%\esp
     xcopy /e /i %IDF_PATH%\examples\get-started\hello_world hello_world
 
-There is a range of example projects in the :idf:`examples` directory in ESP-IDF. You can copy any project in the same way as presented above and run it.
-
-It is also possible to build examples in-place, without copying them first.
+There is a range of example projects in the :idf:`examples` directory in ESP-IDF. You can copy any project in the same way as presented above and run it. It is also possible to build examples in-place, without copying them first.
 
 .. important::
 
@@ -375,8 +412,7 @@ You are using this menu to set up project specific variables, e.g. Wi-Fi network
 
 .. note::
 
-    The colors of the menu could be different in your terminal. You can change the appearance with the option
-    ``--style``. Please run ``idf.py menuconfig --help`` for further information.
+    The colors of the menu could be different in your terminal. You can change the appearance with the option ``--style``. Please run ``idf.py menuconfig --help`` for further information.
 
 .. _get-started-build:
 

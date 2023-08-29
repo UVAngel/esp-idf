@@ -164,8 +164,35 @@ SECTIONS
     *(.fini.literal)
     *(.fini)
     *(.gnu.version)
+
+    /** CPU will try to prefetch up to 16 bytes of
+      * of instructions. This means that any configuration (e.g. MMU, PMS) must allow
+      * safe access to up to 16 bytes after the last real instruction, add
+      * dummy bytes to ensure this
+      */
+    . += 16;
+
     _text_end = ABSOLUTE(.);
     _etext = .;
   } > iram_seg
+
+  /** This section will be used by the debugger and disassembler to get more information
+   * about raw data present in the code.
+   * Indeed, it may be required to add some padding at some points in the code
+   * in order to align a branch/jump destination on a particular bound.
+   * Padding these instructions will generate null bytes that shall be
+   * interpreted as data, and not code by the debugger or disassembler.
+   * This section will only be present in the ELF file, not in the final binary
+   * For more details, check GCC-212
+   */
+  .xt.prop 0 :
+  {
+    KEEP (*(.xt.prop .gnu.linkonce.prop.*))
+  }
+
+  .xt.lit 0 :
+  {
+    KEEP (*(.xt.lit .gnu.linkonce.p.*))
+  }
 
 }

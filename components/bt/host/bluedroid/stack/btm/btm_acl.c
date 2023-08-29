@@ -800,22 +800,6 @@ void btm_acl_encrypt_change (UINT16 handle, UINT8 status, UINT8 encr_enable)
         }
 #endif
     }
-#if (CLASSIC_BT_INCLUDED == TRUE)
-    /* If authentication is done through legacy authentication and esp32 has
-     * not authenticated peer deivce yet, do not proceed for encrytion and
-     * first authenticate it. */
-    else if ((BTM_BothEndsSupportSecureConnections(p->remote_addr) == 0) &&
-            ((p->legacy_auth_state & BTM_ACL_LEGACY_AUTH_SELF) == 0)) {
-        if ((p_dev_rec = btm_find_dev (p->remote_addr)) != NULL) {
-            if (btm_sec_legacy_authentication_mutual(p_dev_rec)) {
-                btm_sec_update_legacy_auth_state(btm_bda_to_acl(p_dev_rec->bd_addr, BT_TRANSPORT_BR_EDR), BTM_ACL_LEGACY_AUTH_SELF);
-            } else {
-                BTM_TRACE_ERROR("%s failed, Resources not available for Authentication procedure", __FUNCTION__);
-            }
-        }
-    }
-#endif
-
 }
 /*******************************************************************************
 **
@@ -936,7 +920,10 @@ void btm_read_remote_version_complete (UINT8 *p)
                     if (HCI_LE_DATA_LEN_EXT_SUPPORTED(p_acl_cb->peer_le_features)) {
                         uint16_t data_length = controller_get_interface()->get_ble_default_data_packet_length();
                         uint16_t data_txtime = controller_get_interface()->get_ble_default_data_packet_txtime();
-                        btsnd_hcic_ble_set_data_length(p_acl_cb->hci_handle, data_length, data_txtime);
+                        if (data_length != p_acl_cb->data_length_params.tx_len) {
+                            p_acl_cb->data_len_updating = true;
+                            btsnd_hcic_ble_set_data_length(p_acl_cb->hci_handle, data_length, data_txtime);
+                        }
                     }
                     l2cble_notify_le_connection (p_acl_cb->remote_addr);
                 } else {
@@ -1860,7 +1847,7 @@ tBTM_STATUS BTM_SetQoS (BD_ADDR bd, FLOW_SPEC *p_flow, tBTM_CMPL_CB *p_cb)
     }
 
     if ( (p = btm_bda_to_acl(bd, BT_TRANSPORT_BR_EDR)) != NULL) {
-        btu_start_timer (&btm_cb.devcb.qossu_timer, BTU_TTYPE_BTM_ACL, BTM_DEV_REPLY_TIMEOUT);
+        btu_start_timer (&btm_cb.devcb.qossu_timer, BTU_TTYPE_BTM_QOS, BTM_DEV_REPLY_TIMEOUT);
         btm_cb.devcb.p_qossu_cmpl_cb = p_cb;
 
         if (!btsnd_hcic_qos_setup (p->hci_handle, p_flow->qos_flags, p_flow->service_type,
@@ -1901,6 +1888,10 @@ void btm_qos_setup_complete (UINT8 status, UINT16 handle, FLOW_SPEC *p_flow)
         memset(&qossu, 0, sizeof(tBTM_QOS_SETUP_CMPL));
         qossu.status = status;
         qossu.handle = handle;
+        tACL_CONN   *p = btm_handle_to_acl(handle);
+        if (p != NULL) {
+            memcpy (qossu.rem_bda, p->remote_addr, BD_ADDR_LEN);
+        }
         if (p_flow != NULL) {
             qossu.flow.qos_flags = p_flow->qos_flags;
             qossu.flow.service_type = p_flow->service_type;
@@ -1915,6 +1906,22 @@ void btm_qos_setup_complete (UINT8 status, UINT16 handle, FLOW_SPEC *p_flow)
     }
 }
 
+/*******************************************************************************
+**
+** Function         btm_qos_setup_timeout
+**
+** Description      This function processes a timeout.
+**                  Currently, we just report an error log
+**
+** Returns          void
+**
+*******************************************************************************/
+void btm_qos_setup_timeout (void *p_tle)
+{
+    BTM_TRACE_DEBUG ("%s\n", __func__);
+
+    btm_qos_setup_complete (HCI_ERR_HOST_TIMEOUT, 0, NULL);
+}
 
 /*******************************************************************************
 **

@@ -23,7 +23,9 @@
 #pragma once
 
 #include <stdlib.h>
+#include "hal/hal_defs.h"
 #include "soc/spi_periph.h"
+#include "soc/spi_struct.h"
 #include "hal/spi_types.h"
 #include "hal/spi_flash_types.h"
 #include <sys/param.h> // For MIN/MAX
@@ -343,7 +345,7 @@ static inline void gpspi_flash_ll_set_address(spi_dev_t *dev, uint32_t addr)
 static inline void gpspi_flash_ll_set_dummy(spi_dev_t *dev, uint32_t dummy_n)
 {
     dev->user.usr_dummy = dummy_n ? 1 : 0;
-    dev->user1.usr_dummy_cyclelen = dummy_n - 1;
+    HAL_FORCE_MODIFY_U32_REG_FIELD(dev->user1, usr_dummy_cyclelen, dummy_n - 1);
 }
 
 /**
@@ -358,6 +360,12 @@ static inline void gpspi_flash_ll_set_dummy_out(spi_dev_t *dev, uint32_t out_en,
     dev->ctrl.dummy_out = out_en;
     dev->ctrl.q_pol = out_lev;
     dev->ctrl.d_pol = out_lev;
+}
+
+static inline void gpspi_flash_ll_set_cs_setup(spi_dev_t *dev, uint32_t cs_setup_time)
+{
+    dev->user.cs_setup = (cs_setup_time > 0 ? 1 : 0);
+    dev->ctrl2.cs_setup_time = cs_setup_time - 1;
 }
 
 #ifdef __cplusplus
