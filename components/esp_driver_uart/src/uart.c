@@ -840,7 +840,11 @@ esp_err_t uart_param_config(uart_port_t uart_num, const uart_config_t *uart_conf
     uart_hal_set_hw_flow_ctrl(&(uart_context[uart_num].hal), uart_config->flow_ctrl, uart_config->rx_flow_ctrl_thresh);
     UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
     uart_hal_rxfifo_rst(&(uart_context[uart_num].hal));
-    uart_hal_txfifo_rst(&(uart_context[uart_num].hal));
+
+    // TL CHANGE - uart txfifo random data after esp_restart (IDFGH-3282) #5274
+    // https://github.com/espressif/esp-idf/issues/5274
+    //uart_hal_txfifo_rst(&(uart_context[uart_num].hal));
+
     return ESP_OK;
 }
 
