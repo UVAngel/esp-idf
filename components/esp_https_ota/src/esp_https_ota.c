@@ -74,6 +74,16 @@ static bool redirection_required(int status_code)
     return false;
 }
 
+// New OTA Error String for OTA Publish to Cloud
+#define MAX_OTA_PERFORM_ERROR_MSG_LENGTH 31             // Keep size same as MAX_OTA_ERROR_MSG_LENGTH
+
+static char ota_perform_err_str[MAX_OTA_PERFORM_ERROR_MSG_LENGTH] = {0};
+
+void get_ota_perform_err_str( char* ptr_err_str )
+{
+    strncpy(ptr_err_str, ota_perform_err_str, MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
+}
+
 static bool process_again(int status_code)
 {
     switch (status_code) {
@@ -490,10 +500,12 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
     esp_https_ota_t *handle = (esp_https_ota_t *)https_ota_handle;
     if (handle == NULL) {
         ESP_LOGE(TAG, "esp_https_ota_perform: Invalid argument");
+        strncpy(ota_perform_err_str, "INVALID OTA HANDLE", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         return ESP_ERR_INVALID_ARG;
     }
     if (handle->state < ESP_HTTPS_OTA_BEGIN) {
         ESP_LOGE(TAG, "esp_https_ota_perform: Invalid state");
+        strncpy(ota_perform_err_str, "INVALID OTA STATE", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         return ESP_FAIL;
     }
 
@@ -505,6 +517,7 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
             err = esp_ota_begin(handle->update_partition, erase_size, &handle->update_handle);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "esp_ota_begin failed (%s)", esp_err_to_name(err));
+                strncpy(ota_perform_err_str, "esp_ota_begin() FAILED", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
                 return err;
             }
             handle->state = ESP_HTTPS_OTA_IN_PROGRESS;
@@ -556,6 +569,7 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
                  */
                 if (!esp_http_client_is_complete_data_received(handle->http_client)) {
                     ESP_LOGE(TAG, "Connection closed before complete data was received!");
+                    strncpy(ota_perform_err_str, "UNEXPECTED CLOSED CONNECTION", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
                     return ESP_FAIL;
                 }
                 ESP_LOGD(TAG, "Connection closed");
@@ -581,6 +595,7 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
                     return ESP_ERR_HTTPS_OTA_IN_PROGRESS;
                 }
                 ESP_LOGE(TAG, "data read %d, errno %d", data_read, errno);
+                strncpy(ota_perform_err_str, "UNEXPECTED END OF DATA", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
                 return ESP_FAIL;
             }
             if (!handle->partial_http_download || (handle->partial_http_download && handle->image_length == handle->binary_file_len)) {
@@ -589,6 +604,7 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
             break;
          default:
             ESP_LOGE(TAG, "Invalid ESP HTTPS OTA State");
+            strncpy(ota_perform_err_str, "INVALID OTA PROCESS STATE", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
             return ESP_FAIL;
             break;
     }
@@ -740,14 +756,19 @@ int esp_https_ota_get_image_size(esp_https_ota_handle_t https_ota_handle)
 
 esp_err_t esp_https_ota(const esp_https_ota_config_t *ota_config)
 {
+    // Clear new ota_perform_err_str
+    memset(ota_perform_err_str, 0, sizeof(ota_perform_err_str));
+
     if (ota_config == NULL || ota_config->http_config == NULL) {
         ESP_LOGE(TAG, "esp_https_ota: Invalid argument");
+        strncpy(ota_perform_err_str, "no esp_http_client config", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         return ESP_ERR_INVALID_ARG;
     }
 
     esp_https_ota_handle_t https_ota_handle = NULL;
     esp_err_t err = esp_https_ota_begin(ota_config, &https_ota_handle);
     if (https_ota_handle == NULL) {
+        strncpy(ota_perform_err_str, "INVALID OTA HANDLE", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         return ESP_FAIL;
     }
 
