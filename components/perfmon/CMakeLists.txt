@@ -18,4 +18,9 @@ idf_component_register(SRCS "${xtensa_perfmon_srcs}"
                        INCLUDE_DIRS "include"
                        REQUIRES "xtensa")
 
-target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format")
+# During the port to v5.2, we encountered an internal compiler error
+#      xtensa_perfmon_apis.c:60:1: error: insn does not satisfy its constraints
+# Apparently, it's a known Xtensa compiler bug. This expressif ticket
+#       https://github.com/espressif/esp-idf/issues/11696#issuecomment-1596208414
+# mentions that one workround is to disable "-fno-if-conversion" for this library.
+target_compile_options(${COMPONENT_LIB} PRIVATE "-Wno-format" "-fno-if-conversion")
