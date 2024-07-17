@@ -558,7 +558,7 @@ static void prov_stop_and_notify(bool is_async)
     if (!is_async)
     {
         uint32_t cleanup_delay = prov_ctx->cleanup_delay > 100 ? prov_ctx->cleanup_delay : 100;
-        ESP_LOGI(TAG, "Delaying %d ms", cleanup_delay);
+        ESP_LOGI(TAG, "Delaying %ld ms", cleanup_delay);
         vTaskDelay(cleanup_delay / portTICK_PERIOD_MS);
     }
 
@@ -1547,24 +1547,24 @@ esp_err_t wifi_prov_mgr_start_provisioning(wifi_prov_security_t security, const 
     //     goto err;
     // }
 
-    /* WiFi storage needs to be restored before exiting this API */
-    restore_wifi_flag |= WIFI_PROV_STORAGE_BIT;
-    /* Erase Wi-Fi credentials in RAM, when call disconnect and user code
-     * receive WIFI_EVENT_STA_DISCONNECTED and maybe call esp_wifi_connect, at
-     * this time Wi-Fi will have no configuration to connect */
-    ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg_empty);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to set empty Wi-Fi credentials");
-        goto err;
-    }
-    /* WiFi settings needs to be restored if provisioning error before exiting this API */
-    restore_wifi_flag |= WIFI_PROV_SETTING_BIT;
+    // /* WiFi storage needs to be restored before exiting this API */
+    // restore_wifi_flag |= WIFI_PROV_STORAGE_BIT;
+    // /* Erase Wi-Fi credentials in RAM, when call disconnect and user code
+    //  * receive WIFI_EVENT_STA_DISCONNECTED and maybe call esp_wifi_connect, at
+    //  * this time Wi-Fi will have no configuration to connect */
+    // ret = esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg_empty);
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to set empty Wi-Fi credentials");
+    //     goto err;
+    // }
+    // /* WiFi settings needs to be restored if provisioning error before exiting this API */
+    // restore_wifi_flag |= WIFI_PROV_SETTING_BIT;
 
-    ret = esp_wifi_disconnect();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to disconnect");
-        goto err;
-    }
+    // ret = esp_wifi_disconnect();
+    // if (ret != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to disconnect");
+    //     goto err;
+    // }
 
 #ifdef CONFIG_ESP_PROTOCOMM_SUPPORT_SECURITY_VERSION_0
     /* Initialize app data */
