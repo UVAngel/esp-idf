@@ -438,8 +438,12 @@ esp_err_t esp_https_ota(const esp_http_client_config_t *config)
     esp_https_ota_handle_t https_ota_handle = NULL;
     esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
     if (https_ota_handle == NULL) {
-        // eliminated the setting of ota_perform_err_str to "INVALID OTA HANDLE" so that the more detailed
-        //failure strings from esp_https_ota_begin() can be used in the publishing of the job notices 
+        // Prevent an undesired empty ota_perform_err_str
+        if ( 0 == strlen(ota_perform_err_str) )
+        {
+            // We do not know what failed in esp_https_ota_begin(), so use a general message - where to look
+            strncpy(ota_perform_err_str, "https_ota_begin() failed", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
+        }
         return ESP_FAIL;
     }
 
