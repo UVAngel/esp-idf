@@ -240,6 +240,9 @@ esp_transport_handle_t esp_transport_tcp_init(void)
     transport_tcp_t *tcp = calloc(1, sizeof(transport_tcp_t));
     ESP_TRANSPORT_MEM_CHECK(TAG, tcp, return NULL);
     tcp->sock = -1;
+
+    ESP_LOGI(TAG, "PTRDBG - esp_transport_tcp_init() - tcp_connect: %p, tcp_read: %p", tcp_connect, tcp_read);
+
     esp_transport_set_func(t, tcp_connect, tcp_read, tcp_write, tcp_close, tcp_poll_read, tcp_poll_write, tcp_destroy);
     esp_transport_set_context_data(t, tcp);
 
