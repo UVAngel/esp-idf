@@ -17,6 +17,8 @@
 #include <string.h>
 #include <esp_tls.h>
 
+#include "esp_debug_helpers.h"
+
 #include "sys/queue.h"
 #include "esp_log.h"
 
@@ -161,8 +163,20 @@ esp_err_t esp_transport_destroy(esp_transport_handle_t t)
 int esp_transport_connect(esp_transport_handle_t t, const char *host, int port, int timeout_ms)
 {
     int ret = -1;
+    // Determine if one of the pointers is NULL
+    // If so, it will cause the INVALID_OTA_HANDLE OTA Job Failure
+    if (NULL == t) {
+        ESP_LOGI(TAG, "PTRDBG - esp_transport_connect() - t = NULL");
+    }
+    if (NULL == t->_connect) {
+        ESP_LOGI(TAG, "PTRDBG - esp_transport_connect() - t->_connect = NULL");
+    }
+
     if (t && t->_connect) {
         return t->_connect(t, host, port, timeout_ms);
+    }
+    else {
+        esp_backtrace_print(15);
     }
     return ret;
 }
@@ -178,8 +192,21 @@ int esp_transport_connect_async(esp_transport_handle_t t, const char *host, int 
 
 int esp_transport_read(esp_transport_handle_t t, char *buffer, int len, int timeout_ms)
 {
+
+    // Determine if one of the pointers is NULL
+    // If so, it will cause the UNEXPECTED_END_OF_DATA Job Failure
+    if (NULL == t) {
+        ESP_LOGI(TAG, "PTRDBG - esp_transport_read() - t = NULL");
+    }
+    if (NULL == t->_read) {
+        ESP_LOGI(TAG, "PTRDBG - esp_transport_read() - _read = NULL");
+    }
+
     if (t && t->_read) {
         return t->_read(t, buffer, len, timeout_ms);
+    }
+    else {
+        esp_backtrace_print(15);
     }
     return -1;
 }
@@ -254,6 +281,9 @@ esp_err_t esp_transport_set_func(esp_transport_handle_t t,
     t->_destroy = _destroy;
     t->_connect_async = NULL;
     t->_parent_transfer = esp_transport_get_default_parent;
+
+    ESP_LOGI(TAG, "PTRDBG - esp_trans_set_func() - _connect: %p, _read: %p", _connect, _read);
+
     return ESP_OK;
 }
 

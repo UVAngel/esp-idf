@@ -159,6 +159,7 @@ static int ssl_read(esp_transport_handle_t t, char *buffer, int len, int timeout
     }
     ret = esp_tls_conn_read(ssl->tls, (unsigned char *)buffer, len);
     if (ret < 0) {
+        // TL NOTE: Saw this when the STALL occurred - errno = 11 - "No more processes"
         ESP_LOGE(TAG, "esp_tls_conn_read error, errno=%s", strerror(errno));
         esp_transport_set_errors(t, ssl->tls->error_handle);
     }
@@ -297,6 +298,9 @@ esp_transport_handle_t esp_transport_ssl_init(void)
     transport_ssl_t *ssl = calloc(1, sizeof(transport_ssl_t));
     ESP_TRANSPORT_MEM_CHECK(TAG, ssl, return NULL);
     esp_transport_set_context_data(t, ssl);
+
+    ESP_LOGI(TAG, "PTRDBG - esp_transport_ssl_init() - ssl_connect: %p, ssl_read: %p", ssl_connect, ssl_read);
+
     esp_transport_set_func(t, ssl_connect, ssl_read, ssl_write, ssl_close, ssl_poll_read, ssl_poll_write, ssl_destroy);
     esp_transport_set_async_connect_func(t, ssl_connect_async);
     return t;
