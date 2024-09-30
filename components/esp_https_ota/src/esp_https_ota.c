@@ -353,6 +353,7 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
                 }
                 ESP_LOGI(TAG, "Connection closed");
             } else if (data_read > 0) {
+                vTaskDelay(10);
                 return _ota_write(handle, (const void *)handle->ota_upgrade_buf, data_read);
             } else {
                 // we are here because esp_http_client_read() set data_read = "-1" (ESP_FAIL) because it is not > 0 or == 0
