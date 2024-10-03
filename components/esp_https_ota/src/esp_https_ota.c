@@ -384,9 +384,7 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
 
         char fail_code_str[5] = {0};
         __itoa ((int)err, fail_code_str, 16);
-        if (NULL != fail_code_str) {
-            strcat(ota_perform_err_str, fail_code_str);
-        }
+        strcat(ota_perform_err_str, fail_code_str);
         goto http_cleanup;
     } else {
         esp_https_ota_dispatch_event(ESP_HTTPS_OTA_CONNECTED, NULL, 0);
