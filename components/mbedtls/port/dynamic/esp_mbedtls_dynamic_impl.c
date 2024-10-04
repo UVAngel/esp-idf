@@ -257,8 +257,6 @@ int esp_mbedtls_add_tx_buffer(mbedtls_ssl_context *ssl, size_t buffer_len)
     struct esp_mbedtls_ssl_buf *esp_buf;
     unsigned char cache_buf[CACHE_BUFFER_SIZE];
 
-    ESP_LOGE(TAG, "esp_mbedtls_add_tx_buffer");
-
     if (ssl->MBEDTLS_PRIVATE(out_buf)) {
         if (esp_mbedtls_get_buf_state(ssl->MBEDTLS_PRIVATE(out_buf)) == ESP_MBEDTLS_SSL_BUF_CACHED) {
             ESP_LOGV(TAG, "out buffer is not empty");
@@ -307,8 +305,6 @@ int esp_mbedtls_free_tx_buffer(mbedtls_ssl_context *ssl)
     int ret = 0;
     unsigned char buf[CACHE_BUFFER_SIZE];
     struct esp_mbedtls_ssl_buf *esp_buf;
-
-    ESP_LOGE(TAG, "esp_mbedtls_free_tx_buffer");
 
     if (!ssl->MBEDTLS_PRIVATE(out_buf) || (ssl->MBEDTLS_PRIVATE(out_buf) && (esp_mbedtls_get_buf_state(ssl->MBEDTLS_PRIVATE(out_buf)) == ESP_MBEDTLS_SSL_BUF_NO_CACHED))) {
         ret = 0;
