@@ -813,6 +813,7 @@ esp_err_t esp_https_ota(const esp_https_ota_config_t *ota_config)
     }
 
     while (1) {
+        ESP_LOGI(TAG, "esp_https_ota_perform iteration");
         err = esp_https_ota_perform(https_ota_handle);
         if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
             break;

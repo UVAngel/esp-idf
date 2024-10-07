@@ -152,15 +152,14 @@ static int esp_mbedtls_alloc_tx_buf(mbedtls_ssl_context *ssl, int len)
 {
     struct esp_mbedtls_ssl_buf *esp_buf;
 
-    ESP_LOGI(TAG, "alloc tx buffer %d bytes", len);
     if (ssl->MBEDTLS_PRIVATE(out_buf)) {
         esp_mbedtls_free_buf(ssl->MBEDTLS_PRIVATE(out_buf));
         ssl->MBEDTLS_PRIVATE(out_buf) = NULL;
     }
 
-    log_heap("Before mbedtls_calloc in esp_mbedtls_alloc_tx_buf");
     esp_buf = mbedtls_calloc(1, SSL_BUF_HEAD_OFFSET_SIZE + len);
     if (!esp_buf) {
+        log_heap("Before mbedtls_calloc in esp_mbedtls_alloc_tx_buf");
         ESP_LOGE(TAG, "esp_mbedtls_alloc_tx_buf alloc(%d bytes) failed", SSL_BUF_HEAD_OFFSET_SIZE + len);
         assert(false);
         return MBEDTLS_ERR_SSL_ALLOC_FAILED;
@@ -183,7 +182,6 @@ static int esp_mbedtls_alloc_tx_buf(mbedtls_ssl_context *ssl, int len)
 
 int esp_mbedtls_setup_tx_buffer(mbedtls_ssl_context *ssl)
 {
-    ESP_LOGE(TAG, "setup tx buffer");
     CHECK_OK(esp_mbedtls_alloc_tx_buf(ssl, TX_IDLE_BUFFER_SIZE));
 
     /* mark the out buffer has no data cached */
@@ -205,7 +203,6 @@ int esp_mbedtls_reset_add_tx_buffer(mbedtls_ssl_context *ssl)
 
 int esp_mbedtls_reset_free_tx_buffer(mbedtls_ssl_context *ssl)
 {
-    ESP_LOGE(TAG, "reset free tx buffer");
     esp_mbedtls_free_buf(ssl->MBEDTLS_PRIVATE(out_buf));
     init_tx_buffer(ssl, NULL);
 
@@ -272,9 +269,9 @@ int esp_mbedtls_add_tx_buffer(mbedtls_ssl_context *ssl, size_t buffer_len)
 
     buffer_len = tx_buffer_len(ssl, buffer_len);
 
-    log_heap("Before mbedtls_calloc in esp_mbedtls_add_tx_buffer");
     esp_buf = mbedtls_calloc(1, SSL_BUF_HEAD_OFFSET_SIZE + buffer_len);
     if (!esp_buf) {
+        log_heap("Before mbedtls_calloc in esp_mbedtls_add_tx_buffer");
         ESP_LOGE(TAG, "alloc(%zu bytes) failed", SSL_BUF_HEAD_OFFSET_SIZE + buffer_len);
         ret = MBEDTLS_ERR_SSL_ALLOC_FAILED;
         assert(false);
@@ -317,9 +314,9 @@ int esp_mbedtls_free_tx_buffer(mbedtls_ssl_context *ssl)
     esp_mbedtls_free_buf(ssl->MBEDTLS_PRIVATE(out_buf));
     init_tx_buffer(ssl, NULL);
 
-    log_heap("Before mbedtls_calloc in esp_mbedtls_free_tx_buffer");
     esp_buf = mbedtls_calloc(1, SSL_BUF_HEAD_OFFSET_SIZE + TX_IDLE_BUFFER_SIZE);
     if (!esp_buf) {
+        log_heap("Before mbedtls_calloc in esp_mbedtls_free_tx_buffer");
         ESP_LOGE(TAG, "esp_mbedtls_free_tx_buffer alloc(%d bytes) failed", SSL_BUF_HEAD_OFFSET_SIZE + TX_IDLE_BUFFER_SIZE);
         assert(false);
         return MBEDTLS_ERR_SSL_ALLOC_FAILED;
@@ -387,9 +384,10 @@ int esp_mbedtls_add_rx_buffer(mbedtls_ssl_context *ssl)
         init_rx_buffer(ssl, NULL);
     }
 
-    log_heap("Before mbedtls_calloc in esp_mbedtls_add_rx_buffer");
+
     esp_buf = mbedtls_calloc(1, SSL_BUF_HEAD_OFFSET_SIZE + buffer_len);
     if (!esp_buf) {
+        log_heap("Before mbedtls_calloc in esp_mbedtls_add_rx_buffer");
         ESP_LOGE(TAG, "esp_mbedtls_add_rx_buffer alloc(%d bytes) failed", SSL_BUF_HEAD_OFFSET_SIZE + buffer_len);
         assert(false);
         ret = MBEDTLS_ERR_SSL_ALLOC_FAILED;
