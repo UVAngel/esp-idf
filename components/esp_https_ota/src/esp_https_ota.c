@@ -272,6 +272,21 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
         if (handle) {
             *handle = NULL;
         }
+
+        // set failure string to appropriate cause(s) to be published in job status notifications
+        strncpy(ota_perform_err_str, "Invalid ", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
+        if (handle == NULL)
+        {
+            strcat(ota_perform_err_str, "handle ");
+        }
+        if (ota_config == NULL) {
+            strcat(ota_perform_err_str, "otacfg ");
+        } else {
+            if (ota_config->http_config == NULL) {
+                strcat(ota_perform_err_str, "httpcfg");
+            }
+        }
+
         return ESP_ERR_INVALID_ARG;
     }
 
@@ -281,6 +296,8 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
 #else
         ESP_LOGE(TAG, "No option for server verification is enabled in esp_http_client config.");
         *handle = NULL;
+        // set failure string to be published in job status notifications
+        strncpy(ota_perform_err_str, "no server cert", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         return ESP_ERR_INVALID_ARG;
 #endif
     }
@@ -289,6 +306,8 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
     if (!https_ota_handle) {
         ESP_LOGE(TAG, "Couldn't allocate memory to upgrade data buffer");
         *handle = NULL;
+        // set failure string to be published in job status notifications
+        strncpy(ota_perform_err_str, "fail calloc data buffer", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         return ESP_ERR_NO_MEM;
     }
 
@@ -307,6 +326,8 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
     if (https_ota_handle->http_client == NULL) {
         ESP_LOGE(TAG, "Failed to initialise HTTP connection");
         err = ESP_FAIL;
+        // set failure string to be published in job status notifications
+        strncpy(ota_perform_err_str, "fail http client init", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         goto failure;
     }
 
@@ -384,6 +405,8 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
     if (https_ota_handle->update_partition == NULL) {
         ESP_LOGE(TAG, "Passive OTA partition not found");
         err = ESP_FAIL;
+        // set failure string to be published in job status notifications
+        strncpy(ota_perform_err_str, "no ota partition", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         goto http_cleanup;
     }
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%" PRIx32,
@@ -398,6 +421,8 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
     if (!https_ota_handle->ota_upgrade_buf) {
         ESP_LOGE(TAG, "Couldn't allocate memory to upgrade data buffer");
         err = ESP_ERR_NO_MEM;
+        // set failure string to be published in job status notifications
+        strncpy(ota_perform_err_str, "fail malloc upgrade buffer", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
         goto http_cleanup;
     }
 #if CONFIG_ESP_HTTPS_OTA_DECRYPT_CB
@@ -605,6 +630,9 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
                     return ESP_ERR_HTTPS_OTA_IN_PROGRESS;
                 }
                 ESP_LOGE(TAG, "data read %d, errno %d", data_read, errno);
+                // we are here because esp_http_client_read() set data_read = "-1" (ESP_FAIL) because it is not > 0 or == 0
+                // esp_http_client_read() returns an ESP_FAIL if esp_transport_read() returns a "-1"
+                // esp_transport_read() will return a "-1" if the esp_transport_handle_t passed in is NULL or its esp_transport->_read() pointer is NULL
                 strncpy(ota_perform_err_str, "UNEXPECTED END OF DATA", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
                 return ESP_FAIL;
             }
@@ -778,7 +806,12 @@ esp_err_t esp_https_ota(const esp_https_ota_config_t *ota_config)
     esp_https_ota_handle_t https_ota_handle = NULL;
     esp_err_t err = esp_https_ota_begin(ota_config, &https_ota_handle);
     if (https_ota_handle == NULL) {
-        strncpy(ota_perform_err_str, "INVALID OTA HANDLE", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
+        // Prevent an undesired empty ota_perform_err_str
+        if ( 0 == strlen(ota_perform_err_str) )
+        {
+            // We do not know what failed in esp_https_ota_begin(), so use a general message - where to look
+            strncpy(ota_perform_err_str, "https_ota_begin() failed", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
+        }
         return ESP_FAIL;
     }
 
