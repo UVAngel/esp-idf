@@ -381,7 +381,7 @@ esp_err_t esp_https_ota_begin(const esp_https_ota_config_t *ota_config, esp_http
         ESP_LOGE(TAG, "Failed to establish HTTP connection");
         // set failure string to be published in job status notifications
         strncpy(ota_perform_err_str, "fail http conn: 0x", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
-        
+
         char fail_code_str[5] = {0};
         __itoa ((int)err, fail_code_str, 16);
         strcat(ota_perform_err_str, fail_code_str);
