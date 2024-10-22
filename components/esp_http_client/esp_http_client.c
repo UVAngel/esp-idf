@@ -1227,7 +1227,6 @@ int esp_http_client_read(esp_http_client_handle_t client, char *buffer, int len)
                     /* ...and lowering the message severity, as closed connection from server side is expected in chunked transport */
                     sev = ESP_LOG_DEBUG;
                 }
-                // TL NOTE: Saw this when the STALL occurred - errno = 11 - "No more processes"
                 ESP_LOG_LEVEL(sev, TAG, "esp_transport_read returned:%d and errno:%d ", rlen, errno);
             }
 
@@ -1451,7 +1450,6 @@ static esp_err_t esp_http_client_connect(esp_http_client_handle_t client)
             return ESP_ERR_HTTP_INVALID_TRANSPORT;
         }
         if (!client->is_async) {
-            ESP_LOGI(TAG, "PTRDBG - esp_http_client_connect() - calling esp_transport_connect()");
             if (esp_transport_connect(client->transport, client->connection_info.host, client->connection_info.port, client->timeout_ms) < 0) {
                 ESP_LOGE(TAG, "Connection failed, sock < 0");
                 return ESP_ERR_HTTP_CONNECT;
