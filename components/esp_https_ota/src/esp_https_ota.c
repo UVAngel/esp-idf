@@ -630,6 +630,9 @@ esp_err_t esp_https_ota_perform(esp_https_ota_handle_t https_ota_handle)
                     return ESP_ERR_HTTPS_OTA_IN_PROGRESS;
                 }
                 ESP_LOGE(TAG, "data read %d, errno %d", data_read, errno);
+                // we are here because esp_http_client_read() set data_read = "-1" (ESP_FAIL) because it is not > 0 or == 0
+                // esp_http_client_read() returns an ESP_FAIL if esp_transport_read() returns a "-1"
+                // esp_transport_read() will return a "-1" if the esp_transport_handle_t passed in is NULL or its esp_transport->_read() pointer is NULL
                 strncpy(ota_perform_err_str, "UNEXPECTED END OF DATA", MAX_OTA_PERFORM_ERROR_MSG_LENGTH);
                 return ESP_FAIL;
             }
