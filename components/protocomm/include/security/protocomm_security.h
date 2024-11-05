@@ -134,7 +134,7 @@ typedef struct protocomm_security {
     esp_err_t (*decrypt)(protocomm_security_handle_t handle,
                          uint32_t session_id,
                          const uint8_t *inbuf, ssize_t inlen,
-                         uint8_t *outbuf, ssize_t *outlen);
+                         uint8_t **outbuf, ssize_t *outlen);
 
     /**
      * Function which checks whether or not a secure connection has
