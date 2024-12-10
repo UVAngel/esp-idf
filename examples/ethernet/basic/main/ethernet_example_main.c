@@ -16,6 +16,7 @@
 #include "esp_log.h"
 #include "ethernet_init.h"
 #include "sdkconfig.h"
+#include "driver/gpio.h"
 
 static const char *TAG = "eth_example";
 
@@ -63,8 +64,21 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "~~~~~~~~~~~");
 }
 
+#define LAN_ON 0
+#define LAN_OFF 1
+
 void app_main(void)
 {
+
+      // Enable Power to PHY
+    const gpio_num_t phy_power_pin = 0;
+    gpio_config_t phy_power_conf = {0};
+    phy_power_conf.mode = GPIO_MODE_OUTPUT;
+    phy_power_conf.pin_bit_mask = (1ULL << phy_power_pin);
+    ESP_ERROR_CHECK(gpio_config(&phy_power_conf));
+    ESP_ERROR_CHECK(gpio_set_level(phy_power_pin, LAN_ON));
+
+
     // Initialize Ethernet driver
     uint8_t eth_port_cnt = 0;
     esp_eth_handle_t *eth_handles;

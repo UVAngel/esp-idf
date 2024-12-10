@@ -110,6 +110,7 @@ static esp_err_t eth_stack_input(esp_eth_mediator_t *eth, uint8_t *buffer, uint3
 
 static esp_err_t eth_on_state_changed(esp_eth_mediator_t *eth, esp_eth_state_t state, void *args)
 {
+    ESP_LOGE(TAG, "eth_on_state_changed");
     esp_err_t ret = ESP_OK;
     esp_eth_driver_t *eth_driver = __containerof(eth, esp_eth_driver_t, mediator);
     esp_eth_mac_t *mac = eth_driver->mac;
@@ -128,6 +129,7 @@ static esp_err_t eth_on_state_changed(esp_eth_mediator_t *eth, esp_eth_state_t s
     }
     case ETH_STATE_LINK: {
         eth_link_t link = (eth_link_t)args;
+        ESP_LOGE(TAG, "eth_on_state_changed: link %d", link);
         ESP_GOTO_ON_ERROR(mac->set_link(mac, link), err, TAG, "ethernet mac set link failed");
         atomic_store(&eth_driver->link, link);
         if (link == ETH_LINK_UP) {
@@ -141,12 +143,14 @@ static esp_err_t eth_on_state_changed(esp_eth_mediator_t *eth, esp_eth_state_t s
     }
     case ETH_STATE_SPEED: {
         eth_speed_t speed = (eth_speed_t)args;
+        ESP_LOGE(TAG, "eth_on_state_changed: speed %d", speed);
         ESP_GOTO_ON_ERROR(mac->set_speed(mac, speed), err, TAG, "ethernet mac set speed failed");
         eth_driver->speed = speed;
         break;
     }
     case ETH_STATE_DUPLEX: {
         eth_duplex_t duplex = (eth_duplex_t)args;
+        ESP_LOGE(TAG, "eth_on_state_changed: duplex %d", duplex);
         ESP_GOTO_ON_ERROR(mac->set_duplex(mac, duplex), err, TAG, "ethernet mac set duplex failed");
         eth_driver->duplex = duplex;
         break;

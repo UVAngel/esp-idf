@@ -211,8 +211,11 @@ typedef struct {
     phy_802_3_t phy_802_3;
 } phy_lan87xx_t;
 
+static bool _first_duplex_set = true;
+
 static esp_err_t lan87xx_update_link_duplex_speed(phy_lan87xx_t *lan87xx)
 {
+
     esp_err_t ret = ESP_OK;
     esp_eth_mediator_t *eth = lan87xx->phy_802_3.eth;
     uint32_t addr = lan87xx->phy_802_3.addr;
@@ -227,12 +230,33 @@ static esp_err_t lan87xx_update_link_duplex_speed(phy_lan87xx_t *lan87xx)
     ESP_GOTO_ON_ERROR(eth->phy_reg_read(eth, addr, ETH_PHY_BMSR_REG_ADDR, &(bmsr.val)), err, TAG, "read BMSR failed");
     ESP_GOTO_ON_ERROR(eth->phy_reg_read(eth, addr, ETH_PHY_BMCR_REG_ADDR, &(bmcr.val)), err, TAG, "read BMCR failed");
     /* link status is forced up because LAN87xx reports link down when loopback is enabled and cable is unplugged */
+
+    ESP_LOGE(TAG, "PHY addr: %ld", addr);
+    ESP_LOGE(TAG, "anlpar: 0x%08lX", anlpar.val);
+    ESP_LOGE(TAG, "bmsr: 0x%08lX", bmsr.val);
+    ESP_LOGE(TAG, "bmcr: 0x%08lX", bmcr.val);
+
     eth_link_t link;
     if(bmcr.en_loopback) {
         link = ETH_LINK_UP;
     } else {
         link = bmsr.link_status ? ETH_LINK_UP : ETH_LINK_DOWN;
+        ESP_LOGE(TAG, "link status as read from chip?: %d", link);
     }
+
+    if (_first_duplex_set) {
+        ESP_LOGE(TAG, "force link at first duplex set");
+        // link = ETH_LINK_UP;
+        // lan87xx->phy_802_3.link_status = link;
+
+        // esp_err_t (*phy_reg_write)(esp_eth_mediator_t *eth, uint32_t phy_addr, uint32_t phy_reg, uint32_t reg_value);
+        // bmcr.en_loopback = 1;
+        // ESP_GOTO_ON_ERROR(eth->phy_reg_write(eth, addr, ETH_PHY_BMCR_REG_ADDR, bmcr.val), err, TAG, "write BMCR failed");
+        // ESP_GOTO_ON_ERROR(eth->phy_reg_read(eth, addr, ETH_PHY_BMCR_REG_ADDR, &(bmcr.val)), err, TAG, "2nd read BMCR failed");
+        // ESP_LOGE(TAG,"AFTER FORCE bmcr: 0x%08lX", bmcr.val);
+        _first_duplex_set = false;
+    }
+
     /* check if link status changed */
     if (lan87xx->phy_802_3.link_status != link) {
         /* when link up, read negotiation result */
@@ -268,11 +292,13 @@ static esp_err_t lan87xx_update_link_duplex_speed(phy_lan87xx_t *lan87xx)
             }
             ESP_GOTO_ON_ERROR(eth->on_state_changed(eth, ETH_STATE_PAUSE, (void *)peer_pause_ability), err, TAG, "change pause ability failed");
         }
+        ESP_LOGE(TAG, "========== link status changed: %d", link);
         ESP_GOTO_ON_ERROR(eth->on_state_changed(eth, ETH_STATE_LINK, (void *)link), err, TAG, "change link failed");
         lan87xx->phy_802_3.link_status = link;
     }
     return ESP_OK;
 err:
+    ESP_LOGE(TAG, "lan87xx_update_link_duplex_speed FAIL");
     return ret;
 }
 
@@ -346,6 +372,7 @@ static esp_err_t lan87xx_init(esp_eth_phy_t *phy)
     uint8_t model;
     ESP_GOTO_ON_ERROR(esp_eth_phy_802_3_read_oui(phy_802_3, &oui), err, TAG, "read OUI failed");
     ESP_GOTO_ON_ERROR(esp_eth_phy_802_3_read_manufac_info(phy_802_3, &model, NULL), err, TAG, "read manufacturer's info failed");
+    ESP_LOGE(TAG, "OUI: 0x%08lX, Model: 0x%02X", oui, model);
     ESP_GOTO_ON_FALSE(oui == 0x1F0, ESP_FAIL, err, TAG, "wrong chip OUI");
 
     bool supported_model = false;
@@ -376,6 +403,10 @@ esp_eth_phy_t *esp_eth_phy_new_lan87xx(const eth_phy_config_t *config)
     lan87xx->phy_802_3.parent.autonego_ctrl = lan87xx_autonego_ctrl;
     lan87xx->phy_802_3.parent.loopback = lan87xx_loopback;
     lan87xx->phy_802_3.parent.set_speed = lan87xx_set_speed;
+
+
+    uint32_t addr = lan87xx->phy_802_3.addr;
+    ESP_LOGE(TAG, "during lan87xx init PHY addr: %ld", addr);
 
     return &lan87xx->phy_802_3.parent;
 err:
