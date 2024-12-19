@@ -20,6 +20,9 @@
 #include <netdb.h>
 #include "protocol_examples_common.h"
 
+
+#include "driver/gpio.h"
+
 static const char *TAG = "tcp_client_multiple";
 
 #define HOST_NAME CONFIG_EXAMPLE_HOST_NAME
@@ -148,6 +151,14 @@ void app_main(void)
       ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    // Enable Power to PHY
+    const gpio_num_t phy_power_pin = 0;
+    gpio_config_t phy_power_conf = {0};
+    phy_power_conf.mode = GPIO_MODE_OUTPUT;
+    phy_power_conf.pin_bit_mask = (1ULL << phy_power_pin);
+    ESP_ERROR_CHECK(gpio_config(&phy_power_conf));
+    ESP_ERROR_CHECK(gpio_set_level(phy_power_pin, 0));
 
     esp_netif_init();
 

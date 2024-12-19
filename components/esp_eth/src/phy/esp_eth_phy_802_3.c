@@ -382,7 +382,9 @@ esp_err_t esp_eth_phy_802_3_del(phy_802_3_t *phy_802_3)
 
 esp_err_t esp_eth_phy_802_3_reset_hw(phy_802_3_t *phy_802_3, uint32_t reset_assert_us)
 {
+
     if (phy_802_3->reset_gpio_num >= 0) {
+        ESP_LOGE(TAG,".................. RESET LAN .................. gpio num %d", phy_802_3->reset_gpio_num);
         esp_rom_gpio_pad_select_gpio(phy_802_3->reset_gpio_num);
         gpio_set_direction(phy_802_3->reset_gpio_num, GPIO_MODE_OUTPUT);
         gpio_set_level(phy_802_3->reset_gpio_num, 0);
