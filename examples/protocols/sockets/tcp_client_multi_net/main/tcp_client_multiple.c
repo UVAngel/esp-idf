@@ -167,6 +167,14 @@ void app_main(void)
 
     ESP_ERROR_CHECK(example_connect());
 
+    // Try setting the default netif to etherent.
+    esp_netif_t *netif = get_example_netif_from_desc("example_netif_eth");
+    if (netif == NULL) {
+        ESP_LOGE(TAG, "example_netif_eth fails to find the netif");
+    } else {
+        esp_netif_set_default_netif(netif);
+    }
+
     vTaskDelay(5000 / portTICK_PERIOD_MS);
 
     xTaskCreate(&app_connection_task, "app_ethernet_task", 4096, "example_netif_eth", 5, NULL);
