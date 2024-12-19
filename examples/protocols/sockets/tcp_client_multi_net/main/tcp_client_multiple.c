@@ -112,11 +112,12 @@ app_multiple_handle_fail:
 
 static void app_connection_task(void *pvParameters)
 {
+    ESP_LOGE(TAG, "START TASK");
     esp_ip4_addr_t ip4_addr;
     const char *netif_desc = pvParameters;
 
     esp_netif_t *netif = get_example_netif_from_desc(netif_desc);
-    ESP_LOGD(TAG, "netif described as \"%s\" corresponds to esp-netif ptr:%p", netif_desc, netif);
+    ESP_LOGE(TAG, "netif described as \"%s\" corresponds to esp-netif ptr:%p", netif_desc, netif);
     while(netif) {
         /* Wait for the host name to get */
         const struct addrinfo hints = {
@@ -166,6 +167,8 @@ void app_main(void)
 
     ESP_ERROR_CHECK(example_connect());
 
-    xTaskCreate(&app_connection_task, "app_ethernet_task", 4096, "eth", 5, NULL);
-    xTaskCreate(&app_connection_task, "app_wifi_task", 4096, "sta", 5, NULL);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+    xTaskCreate(&app_connection_task, "app_ethernet_task", 4096, "example_netif_eth", 5, NULL);
+    xTaskCreate(&app_connection_task, "app_wifi_task", 4096, "example_netif_sta", 5, NULL);
 }
